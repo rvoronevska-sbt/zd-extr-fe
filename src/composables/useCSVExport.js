@@ -47,7 +47,7 @@ export function useCSVExport(dataTable, filteredRows, processedCustomers, format
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `customers-${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `customers-${new Date().toLocaleDateString('en-CA')}.csv`;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();

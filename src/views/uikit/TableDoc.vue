@@ -220,12 +220,12 @@ watch(
 // ────────────────────────────────────────────────
 // Export & format
 // ────────────────────────────────────────────────
-const { exportToCSV } = useCSVExport(dataTable, paginatedTickets, paginatedTickets, formatDate);
-
 function formatDate(value) {
     if (!value || !(value instanceof Date)) return '';
     return value.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+
+const { exportToCSV } = useCSVExport(dataTable, filteredTickets, filteredTickets, formatDate);
 
 // ────────────────────────────────────────────────
 // Event handlers
