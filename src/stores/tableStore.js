@@ -4,15 +4,27 @@ import { computed, ref } from 'vue';
 
 export const useTableStore = defineStore('table', () => {
     const filteredCustomers = ref([]);
+    let cachedStats = null;
+    let cachedStatsLength = 0;
 
     function setFilteredCustomers(rows) {
         filteredCustomers.value = rows || [];
+        // Invalidate cache when customers change
+        cachedStats = null;
+        cachedStatsLength = 0;
     }
 
     // ────────────────────────────────────────────────
-    // Aggregations for charts
+    // Aggregations for charts (memoized)
     // ────────────────────────────────────────────────
     const topicStats = computed(() => {
+        const currentLength = filteredCustomers.value.length;
+        
+        // Return cached result if data hasn't changed
+        if (cachedStats !== null && cachedStatsLength === currentLength) {
+            return cachedStats;
+        }
+
         const stats = {};
 
         filteredCustomers.value.forEach((c) => {
@@ -33,7 +45,7 @@ export const useTableStore = defineStore('table', () => {
         });
 
         // Sort by total descending
-        return Object.entries(stats)
+        cachedStats = Object.entries(stats)
             .map(([topic, counts]) => ({
                 topic,
                 total: counts.total,
@@ -41,6 +53,9 @@ export const useTableStore = defineStore('table', () => {
                 percentNegative: counts.total > 0 ? (counts.negative / counts.total) * 100 : 0
             }))
             .sort((a, b) => b.total - a.total);
+        
+        cachedStatsLength = currentLength;
+        return cachedStats;
     });
 
     const chartLabels = computed(() => topicStats.value.map((s) => s.topic));

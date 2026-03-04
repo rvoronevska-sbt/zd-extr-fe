@@ -173,9 +173,7 @@ function getSegmentRowClass(segment) {
         >
             <Column header="Customer Segment" field="segment" :sortable="false" style="min-width: 180px; font-weight: bold; text-align: center; padding: 0">
                 <template #body="{ data }">
-                    <div :class="getSegmentRowClass(data.segment)" class="p-8 dark:text-[var(--surface-ground)]">
-                        {{ data.segment }}
-                    </div>
+                    <div :class="getSegmentRowClass(data.segment)" class="p-8 dark:text-[var(--surface-ground)]">{{ data.segment }}</div>
                 </template>
             </Column>
 
@@ -186,8 +184,8 @@ function getSegmentRowClass(segment) {
                         <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)" :class="data[`csat_${date.toISOString().split('T')[0]}`] !== '—' ? 'bg-yellow-100 dark:text-[var(--surface-ground)]' : ''">
                             CSAT: {{ data[`csat_${date.toISOString().split('T')[0]}`] }}
                         </div>
-                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">Good: {{ data[`good_${date.toISOString().split('T')[0]}`] }}</div>
-                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">Bad: {{ data[`bad_${date.toISOString().split('T')[0]}`] }}</div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">Good rates: {{ data[`good_${date.toISOString().split('T')[0]}`] }}</div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">Bad rates: {{ data[`bad_${date.toISOString().split('T')[0]}`] }}</div>
                         <div>Rated: {{ data[`rated_${date.toISOString().split('T')[0]}`] }}</div>
                     </div>
                 </template>

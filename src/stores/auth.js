@@ -3,6 +3,8 @@ import { computed, ref } from 'vue';
 
 // Cache for the auth instance (closure variable – lives as long as the store)
 let cachedAuth = null;
+// Store unsubscribe function to clean up listener
+let unsubscribeAuth = null;
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null); // { uid, email, displayName, role? }
@@ -74,6 +76,12 @@ export const useAuthStore = defineStore('auth', () => {
 
     // ====================== LOGOUT ======================
     async function logout() {
+        // Clean up Firebase listener before logout
+        if (isFirebase && unsubscribeAuth) {
+            unsubscribeAuth();
+            unsubscribeAuth = null;
+        }
+
         if (isFirebase) {
             const auth = await getFirebaseAuth();
             const { signOut } = await import('firebase/auth');
@@ -86,8 +94,6 @@ export const useAuthStore = defineStore('auth', () => {
 
         user.value = null;
         error.value = null;
-        // Optional: clear cache on logout if desired
-        // cachedAuth = null;
     }
 
     // ====================== INITIALIZE ======================
@@ -101,7 +107,13 @@ export const useAuthStore = defineStore('auth', () => {
                 getFirebaseAuth() // initializes/caches auth when needed
             ])
                 .then(([{ onAuthStateChanged }, auth]) => {
-                    onAuthStateChanged(auth, (fbUser) => {
+                    // Clean up previous listener if one exists
+                    if (unsubscribeAuth) {
+                        unsubscribeAuth();
+                    }
+
+                    // Set up listener and store unsubscribe function for cleanup
+                    unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
                         user.value = fbUser
                             ? {
                                   uid: fbUser.uid,

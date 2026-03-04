@@ -64,7 +64,34 @@ const lazyParams = ref({
     limit: 5
 });
 
+// Dialog state for transcript viewing
+const chatDialogVisible = ref(false);
+const emailDialogVisible = ref(false);
+const currentChatTranscript = ref('');
+const currentEmailTranscript = ref('');
+const currentChatDate = ref(null);
+const currentEmailDate = ref(null);
+
+// Dialog handlers
+const openChatDialog = (transcript, timestamp) => {
+    currentChatTranscript.value = transcript;
+    currentChatDate.value = timestamp;
+    chatDialogVisible.value = true;
+};
+
+const openEmailDialog = (transcript, timestamp) => {
+    currentEmailTranscript.value = transcript;
+    currentEmailDate.value = timestamp;
+    emailDialogVisible.value = true;
+};
+
 // Inline debounce – no dependencies
+/**
+ * Debounce utility to throttle rapid function calls.
+ * @param {Function} fn - Function to debounce
+ * @param {number} delay - Debounce delay in milliseconds
+ * @returns {Function} Debounced function
+ */
 const debounce = (fn, delay) => {
     let timer = null;
     return (...args) => {
@@ -196,12 +223,13 @@ const totalRecords = computed(() => filteredTickets.value.length);
 // Watchers
 // ────────────────────────────────────────────────
 
-// 1. Debounced page reset when filters change
+// 1. Debounced page reset when filters change (increased to 500ms for better UX)
 const debouncedResetPage = debounce(() => {
     lazyParams.value.page = 1;
-}, 300);
+}, 500); // Increased from 300ms to reduce excessive re-computations
 
 // Deep watch on all filters – reset page on any change
+// Note: Deep watching is necessary here since filters contain nested objects
 watch(
     () => filters.value,
     () => debouncedResetPage(),
@@ -220,9 +248,49 @@ watch(
 // ────────────────────────────────────────────────
 // Export & format
 // ────────────────────────────────────────────────
+/**
+ * Format a Date object to MM/DD/YYYY string.
+ * @param {Date} value - Date object to format
+ * @returns {string} Formatted date string or empty string if invalid
+ */
 function formatDate(value) {
     if (!value || !(value instanceof Date)) return '';
     return value.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+/**
+ * Format ISO 8601 timestamps in transcript content to readable [MM/DD/YYYY HH:mm] format.
+ * Extracts and replaces timestamps found at the start of lines (common in chat/email transcripts).
+ * @param {string} transcript - Raw transcript text with embedded ISO 8601 timestamps
+ * @returns {string} Transcript with formatted timestamps, or original if parsing fails
+ */
+function formatTranscriptWithDates(transcript) {
+    if (!transcript) return '';
+
+    // Regex to match ISO 8601 timestamps at the start of lines
+    // Format: 2026-02-07T18:41:32.417000+00:00
+    const isoTimestampRegex = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z))\s+/g;
+
+    return transcript.replace(isoTimestampRegex, (match, timestamp) => {
+        try {
+            const date = new Date(timestamp);
+            // Validate date parsing succeeded
+            if (isNaN(date.getTime())) {
+                return match; // Return original if date is invalid
+            }
+
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+
+            return `[${month}/${day}/${year} ${hours}:${minutes}] `;
+        } catch (e) {
+            // Silently fallback to original on any parsing error
+            return match;
+        }
+    });
 }
 
 const { exportToCSV } = useCSVExport(dataTable, filteredTickets, filteredTickets, formatDate);
@@ -230,16 +298,31 @@ const { exportToCSV } = useCSVExport(dataTable, filteredTickets, filteredTickets
 // ────────────────────────────────────────────────
 // Event handlers
 // ────────────────────────────────────────────────
+
+/**
+ * Handle pagination changes from DataTable.
+ * @param {Object} event - Pagination event with page and rows info
+ */
 function onPage(event) {
-    lazyParams.value.page = event.page + 1;
-    lazyParams.value.limit = event.rows;
+    if (lazyParams.value) {
+        lazyParams.value.page = event?.page ? event.page + 1 : 1;
+        lazyParams.value.limit = event?.rows || 5;
+    }
 }
 
+/**
+ * Handle filter changes - reset pagination to page 1.
+ */
 function onFilter() {
-    lazyParams.value.page = 1;
+    if (lazyParams.value) {
+        lazyParams.value.page = 1;
+    }
 }
 
-// Quick date presets
+/**
+ * Apply quick date filter presets (Today, Last 7 Days, Last 30 Days).
+ * @param {string} period - Period key: 'today', 'week', or 'month'
+ */
 const setQuickDateFilter = (period) => {
     const start = new Date();
     const end = new Date();
@@ -250,10 +333,15 @@ const setQuickDateFilter = (period) => {
     else if (period === 'week') (start.setDate(start.getDate() - 7), start.setHours(0, 0, 0, 0));
     else if (period === 'month') (start.setDate(start.getDate() - 30), start.setHours(0, 0, 0, 0));
 
-    filters.value.timestamp.constraints[0].value = start;
-    filters.value.timestamp.constraints[1].value = end;
+    // Safely set date constraints
+    if (filters.value?.timestamp?.constraints) {
+        filters.value.timestamp.constraints[0].value = start;
+        filters.value.timestamp.constraints[1].value = end;
+    }
 
-    lazyParams.value.page = 1;
+    if (lazyParams.value) {
+        lazyParams.value.page = 1;
+    }
 };
 
 const fromDate = computed({
@@ -271,15 +359,17 @@ const toDate = computed({
 });
 
 function clearFilter() {
-    // Reset global
-    filters.value.global.value = null;
+    // Reset global filter safely
+    if (filters.value?.global) {
+        filters.value.global.value = null;
+    }
 
     // Reset date constraints completely
-    if (filters.value.timestamp?.constraints) {
+    if (filters.value?.timestamp?.constraints) {
         filters.value.timestamp.constraints[0].value = null; // From / ≥
         filters.value.timestamp.constraints[1].value = null; // To / <
-    } else {
-        // Re-init if somehow missing
+    } else if (filters.value?.timestamp) {
+        // Re-init if constraints missing
         filters.value.timestamp = {
             operator: FilterOperator.AND,
             constraints: [
@@ -289,22 +379,30 @@ function clearFilter() {
         };
     }
 
-    // Reset all other filters
-    Object.keys(filters.value).forEach((key) => {
-        if (key === 'global' || key === 'timestamp') return; // already handled
+    // Reset all other filters safely
+    if (filters.value) {
+        Object.keys(filters.value).forEach((key) => {
+            if (key === 'global' || key === 'timestamp') return; // already handled
 
-        const f = filters.value[key];
-        if (f?.constraints) {
-            f.constraints.forEach((c) => (c.value = null));
-        } else if (Array.isArray(f?.value)) {
-            f.value = [];
-        } else {
-            f.value = null;
-        }
-    });
+            const f = filters.value[key];
+            if (!f) return; // Skip if filter doesn't exist
+
+            if (f.constraints) {
+                f.constraints.forEach((c) => {
+                    if (c) c.value = null;
+                });
+            } else if (Array.isArray(f.value)) {
+                f.value = [];
+            } else if (f.value !== undefined) {
+                f.value = null;
+            }
+        });
+    }
 
     // Reset pagination to page 1
-    lazyParams.value.page = 1;
+    if (lazyParams.value) {
+        lazyParams.value.page = 1;
+    }
 }
 </script>
 
@@ -346,16 +444,16 @@ function clearFilter() {
             <!-- Header with quick filters, clear, export, global search -->
             <template #header>
                 <div class="flex justify-between">
-                    <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter()" />
+                    <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter()" aria-label="Clear all filters" />
                     <div class="flex flex-wrap gap-3 items-center">
                         <!-- Quick date filters -->
                         <div class="flex gap-2">
-                            <Button label="Today" icon="pi pi-calendar" outlined size="small" @click="setQuickDateFilter('today')" />
-                            <Button label="Last 7 Days" outlined size="small" @click="setQuickDateFilter('week')" />
-                            <Button label="Last 30 Days" outlined size="small" @click="setQuickDateFilter('month')" />
+                            <Button label="Today" icon="pi pi-calendar" outlined size="small" @click="setQuickDateFilter('today')" aria-label="Filter by today" />
+                            <Button label="Last 7 Days" outlined size="small" @click="setQuickDateFilter('week')" aria-label="Filter by last 7 days" />
+                            <Button label="Last 30 Days" outlined size="small" @click="setQuickDateFilter('month')" aria-label="Filter by last 30 days" />
                         </div>
                     </div>
-                    <Button type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportToCSV()" />
+                    <Button type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportToCSV()" aria-label="Export filtered results to CSV" />
                     <IconField>
                         <InputIcon>
                             <i class="pi pi-search" />
@@ -468,17 +566,10 @@ function clearFilter() {
                 </template>
             </Column>
 
-            <Column header="Chat Transcript" field="chat_transcript" filterField="chat_transcript" style="min-width: 30rem; max-width: 30rem">
+            <Column header="Chat Transcript" field="chat_transcript" filterField="chat_transcript" style="min-width: 12rem">
                 <template #body="{ data }">
-                    <!-- Make this div scrollable + relative positioning -->
-                    <div class="transcript-container relative overflow-auto" :style="{ maxHeight: '125px' }">
-                        <p class="whitespace-pre-wrap break-words">
-                            {{ data.chat_transcript || '—' }}
-                        </p>
-
-                        <!-- Scroll to top button appears when scrolled down -->
-                        <ScrollTop target="parent" :threshold="100" icon="pi pi-arrow-up" class="custom-scrolltop" />
-                    </div>
+                    <Button v-if="data.chat_transcript" label="View" icon="pi pi-external-link" @click="openChatDialog(data.chat_transcript, data.timestamp)" size="small" severity="info" rounded aria-label="View chat transcript" />
+                    <span v-else>—</span>
                 </template>
 
                 <template #filter="{ filterModel }">
@@ -486,21 +577,14 @@ function clearFilter() {
                 </template>
             </Column>
 
-            <Column header="Email Transcript" field="email_transcript" filterField="email_transcript" style="min-width: 30rem; max-width: 30rem">
+            <Column header="Email Transcript" field="email_transcript" filterField="email_transcript" style="min-width: 12rem">
                 <template #body="{ data }">
-                    <!-- Make this div scrollable + relative positioning -->
-                    <div class="transcript-container relative overflow-auto" :style="{ maxHeight: '125px' }">
-                        <p class="whitespace-pre-wrap break-words">
-                            {{ data.email_transcript || '—' }}
-                        </p>
-
-                        <!-- Scroll to top button appears when scrolled down -->
-                        <ScrollTop target="parent" :threshold="100" icon="pi pi-arrow-up" class="custom-scrolltop" />
-                    </div>
+                    <Button v-if="data.email_transcript" label="View" icon="pi pi-external-link" @click="openEmailDialog(data.email_transcript, data.timestamp)" size="small" severity="info" rounded aria-label="View email transcript" />
+                    <span v-else>—</span>
                 </template>
 
                 <template #filter="{ filterModel }">
-                    <InputText v-model="filterModel.value" type="text" placeholder="Filter by Chat Transcript" />
+                    <InputText v-model="filterModel.value" type="text" placeholder="Filter by Email Transcript" />
                 </template>
             </Column>
 
@@ -526,6 +610,32 @@ function clearFilter() {
                 </template>
             </Column>
         </DataTable>
+
+        <!-- Chat Transcript Dialog -->
+        <Dialog v-model:visible="chatDialogVisible" :header="`Chat Transcript - ${formatDate(currentChatDate)}`" :style="{ width: '75vw' }" maximizable modal :contentStyle="{ height: '300px' }" aria-label="Chat transcript viewer">
+            <div class="space-y-3 overflow-y-auto" style="max-height: 400px">
+                <div class="text-xs text-gray-500 dark:text-gray-400 px-4 pt-2 font-semibold tracking-wide">Ticket Date: {{ formatDate(currentChatDate) }}</div>
+                <div class="whitespace-pre-wrap break-words text-sm p-4 bg-surface-50 dark:bg-surface-900 rounded font-mono">
+                    {{ formatTranscriptWithDates(currentChatTranscript) }}
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Close" icon="pi pi-check" @click="chatDialogVisible = false" aria-label="Close chat transcript dialog" />
+            </template>
+        </Dialog>
+
+        <!-- Email Transcript Dialog -->
+        <Dialog v-model:visible="emailDialogVisible" :header="`Email Transcript - ${formatDate(currentEmailDate)}`" :style="{ width: '75vw' }" maximizable modal :contentStyle="{ height: '300px' }" aria-label="Email transcript viewer">
+            <div class="space-y-3 overflow-y-auto" style="max-height: 400px">
+                <div class="text-xs text-gray-500 dark:text-gray-400 px-4 pt-2 font-semibold tracking-wide">Ticket Date: {{ formatDate(currentEmailDate) }}</div>
+                <div class="whitespace-pre-wrap break-words text-sm p-4 bg-surface-50 dark:bg-surface-900 rounded font-mono">
+                    {{ formatTranscriptWithDates(currentEmailTranscript) }}
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Close" icon="pi pi-check" @click="emailDialogVisible = false" aria-label="Close email transcript dialog" />
+            </template>
+        </Dialog>
     </div>
 </template>
 

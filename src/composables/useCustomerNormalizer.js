@@ -1,29 +1,33 @@
 import { cleanAndFormatString } from '@/utils/stringUtils';
 
 export function useCustomerNormalizer() {
+    // Helper to normalize string fields - single pass
+    const normalizeField = (value, defaultValue = 'none') => {
+        if (value == null) return defaultValue;
+        const normalized = String(value).trim().toLowerCase();
+        return normalized === 'null' || normalized === '' ? defaultValue : normalized;
+    };
+
     const normalizeCustomer = (customer) => {
         const normalized = { ...customer };
 
         normalized.timestamp = new Date(customer.timestamp);
 
-        normalized.vip_level = !customer.vip_level || customer.vip_level.toString().trim().toLowerCase() === 'null' ? 'none' : customer.vip_level.toString().trim().toLowerCase();
+        // Use helper for consistent, efficient normalization (single pass per field)
+        normalized.vip_level = normalizeField(customer.vip_level, 'none');
+        normalized.customer_email = normalizeField(customer.customer_email, 'none');
+        normalized.agent_email = normalizeField(customer.agent_email, 'none');
+        normalized.sentiment = normalizeField(customer.sentiment, 'none');
 
-        normalized.customer_email = !customer.customer_email || customer.customer_email.toString().trim().toLowerCase() === 'null' ? 'none' : customer.customer_email.toString().trim().toLowerCase();
+        // Summary uses different default
+        normalized.summary = normalizeField(customer.summary, 'No Data');
 
-        normalized.agent_email = !customer.agent_email || customer.agent_email.toString().trim().toLowerCase() === 'null' ? 'none' : customer.agent_email.toString().trim().toLowerCase();
-
-        normalized.summary = !customer.summary || customer.summary.toString().trim().toLowerCase() === 'null' ? 'No Data' : customer.summary;
-
-        // Optional: normalize sentiment/vip_level case
-        if (normalized.vip_level) normalized.vip_level = normalized.vip_level.toLowerCase();
-        if (normalized.sentiment) normalized.sentiment = normalized.sentiment.toLowerCase();
-
-        // Clean transcripts
-        if (normalized.chat_transcript) {
-            normalized.chat_transcript = cleanAndFormatString(normalized.chat_transcript);
+        // Clean transcripts (already have null checks)
+        if (customer.chat_transcript) {
+            normalized.chat_transcript = cleanAndFormatString(customer.chat_transcript);
         }
-        if (normalized.email_transcript) {
-            normalized.email_transcript = cleanAndFormatString(normalized.email_transcript);
+        if (customer.email_transcript) {
+            normalized.email_transcript = cleanAndFormatString(customer.email_transcript);
         }
 
         return normalized;

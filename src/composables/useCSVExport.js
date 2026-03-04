@@ -5,6 +5,13 @@ export function useCSVExport(dataTable, filteredRows, processedCustomers, format
         return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str.replace(/"/g, '""')}"` : str;
     };
 
+    // Calculate estimated file size
+    const estimateFileSizeMB = (rowCount) => {
+        // Rough estimate: ~200 bytes per row for CSV data
+        const estimatedBytes = rowCount * 200;
+        return (estimatedBytes / (1024 * 1024)).toFixed(2);
+    };
+
     const exportToCSV = () => {
         if (!dataTable.value) {
             alert('Table not ready');
@@ -18,7 +25,19 @@ export function useCSVExport(dataTable, filteredRows, processedCustomers, format
             return;
         }
 
-        alert(`Exporting ${dataToExport.length} filtered rows`);
+        const rowCount = dataToExport.length;
+        const estimatedSizeMB = estimateFileSizeMB(rowCount);
+
+        // Warn if exporting large datasets (>10k rows or >2MB)
+        if (rowCount > 10000 || parseFloat(estimatedSizeMB) > 2) {
+            const warned = confirm(
+                `⚠️ Large export detected!\n\n` +
+                `Rows: ${rowCount.toLocaleString()}\n` +
+                `Estimated size: ~${estimatedSizeMB} MB\n\n` +
+                `This may take a moment. Continue?`
+            );
+            if (!warned) return;
+        }
 
         const headers = ['Date', 'Topic', 'Ticket ID', 'Brand', 'VIP Level', 'Customer Email', 'Agent Email', 'CSAT Score', 'Chat Tags', 'Chat Transcript', 'Email Transcript', 'Sentiment', 'Summary'];
 

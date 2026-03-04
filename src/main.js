@@ -14,7 +14,7 @@ import { useAuthStore } from '@/stores/auth';
 import '@/assets/tailwind.css';
 import '@/assets/styles.scss';
 
-// import primeiconsFontUrl from 'primeicons/fonts/primeicons.woff2?url';
+import primeiconsFontUrl from 'primeicons/fonts/primeicons.woff2?url';
 
 const app = createApp(App);
 
@@ -46,12 +46,12 @@ const authStore = useAuthStore();
 authStore.initializeAuth();
 
 // ── Preload PrimeIcons font early ─────────────────────────────────
-// const preloadLink = document.createElement('link');
-// preloadLink.rel = 'preload';
-// preloadLink.as = 'font';
-// preloadLink.type = 'font/woff2';
-// preloadLink.href = primeiconsFontUrl;
-// preloadLink.crossOrigin = 'anonymous'; // required for preload to trigger in most browsers
-// document.head.appendChild(preloadLink);
+const preloadLink = document.createElement('link');
+preloadLink.rel = 'preload';
+preloadLink.as = 'font';
+preloadLink.type = 'font/woff2';
+preloadLink.href = primeiconsFontUrl;
+preloadLink.crossOrigin = 'anonymous'; // required for preload to trigger in most browsers
+document.head.appendChild(preloadLink);
 
 app.mount('#app');

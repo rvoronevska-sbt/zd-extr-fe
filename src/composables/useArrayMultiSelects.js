@@ -1,6 +1,9 @@
 import mockTicketSummaries from '@/services/mock-ticket-summaries.json';
 import { ref } from 'vue';
 
+let isInitialized = false;
+let initPromise = null;
+
 export function useArrayMultiSelects() {
     const allChatTags = ref([]);
     const allTopics = ref([]);
@@ -28,6 +31,7 @@ export function useArrayMultiSelects() {
         return value ?? 'none'; // null/undefined → none
     };
 
+    // Initialize function - processes mock data into structured format
     const initialize = () => {
         const tagSet = new Set();
         const topicSet = new Set();
@@ -80,12 +84,31 @@ export function useArrayMultiSelects() {
         fullProcessedTickets.value = processed;
     };
 
-    initialize();
+    // Lazy initialization - only initialize on first use
+    const lazyInit = () => {
+        if (isInitialized) return Promise.resolve();
+        
+        // Return same promise if already in progress
+        if (initPromise) return initPromise;
+        
+        initPromise = Promise.resolve().then(() => {
+            if (!isInitialized) {
+                initialize();
+                isInitialized = true;
+            }
+        });
+        
+        return initPromise;
+    };
 
     const getPaginatedTickets = (page, limit) => {
+        lazyInit();  // Ensure data is initialized before returning
         const start = (page - 1) * limit;
         return fullProcessedTickets.value.slice(start, start + limit);
     };
+
+    // Auto-initialize on first instantiation (non-blocking)
+    lazyInit();
 
     return {
         allChatTags,
@@ -95,6 +118,7 @@ export function useArrayMultiSelects() {
         allCustomerEmails,
         allAgentEmails,
         fullProcessedTickets,
-        getPaginatedTickets
+        getPaginatedTickets,
+        _lazyInit: lazyInit  // Export for components that need explicit control
     };
 }

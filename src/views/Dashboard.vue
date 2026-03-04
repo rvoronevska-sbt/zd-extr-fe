@@ -1,7 +1,7 @@
 <script setup>
 import StatsWidget from '@/components/StatsWidget.vue';
 import TableDoc from './uikit/TableDoc.vue';
-// import VipTableDoc from './uikit/VipTableDoc.vue';
+import VipTableDoc from './uikit/VipTableDoc.vue';
 </script>
 
 <template>
@@ -9,5 +9,5 @@ import TableDoc from './uikit/TableDoc.vue';
         <StatsWidget />
     </div>
     <TableDoc />
-    <!-- <VipTableDoc /> -->
+    <VipTableDoc />
 </template>
