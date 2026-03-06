@@ -2,6 +2,7 @@ import { PrimeVueResolver } from '@primevue/auto-import-resolver';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import { fileURLToPath, URL } from 'node:url';
+import { visualizer } from 'rollup-plugin-visualizer';
 import Components from 'unplugin-vue-components/vite';
 import { defineConfig } from 'vite';
 
@@ -27,8 +28,6 @@ export default defineConfig({
         tailwindcss(),
         Components({
             resolvers: [PrimeVueResolver()]
-<<<<<<< HEAD
-=======
         }),
         visualizer({
             open: true,
@@ -36,7 +35,6 @@ export default defineConfig({
             gzipSize: true,
             template: 'treemap',
             emitFile: false
->>>>>>> 1b17196 (prepared for production)
         })
     ],
 
@@ -75,6 +73,7 @@ export default defineConfig({
                 target: 'http://56.228.5.130',
                 changeOrigin: true,
                 secure: false,
+                rewrite: (path) => path.replace(/^\/api/, '')
             }
         }
     }
