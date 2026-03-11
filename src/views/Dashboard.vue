@@ -1,7 +1,9 @@
 <script setup>
+import { defineAsyncComponent } from 'vue';
 import StatsWidget from '@/components/StatsWidget.vue';
-import TableDoc from './uikit/TableDoc.vue';
-import VipTableDoc from './uikit/VipTableDoc.vue';
+
+const TableDoc = defineAsyncComponent(() => import('./uikit/TableDoc.vue'));
+const VipTableDoc = defineAsyncComponent(() => import('./uikit/VipTableDoc.vue'));
 </script>
 
 <template>

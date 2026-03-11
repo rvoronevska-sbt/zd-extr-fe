@@ -12,7 +12,7 @@ export function applyTicketFilters(data, params = {}) {
         globalFilter = '',
         ticketid = null,
         brand = [],
-        topic = [],
+        topic = null,
         vip_level = [],
         customer_email = [],
         agent_email = [],
@@ -59,7 +59,6 @@ export function applyTicketFilters(data, params = {}) {
 
     // Multi-select filters
     if (brand.length) result = result.filter((item) => brand.includes(item.brand));
-    if (topic.length) result = result.filter((item) => topic.some((t) => item.topic?.includes(t)));
     if (vip_level.length) result = result.filter((item) => vip_level.includes(item.vip_level));
     if (customer_email.length) result = result.filter((item) => customer_email.some((e) => item.customer_email?.toLowerCase().includes(e.toLowerCase())));
     if (agent_email.length) result = result.filter((item) => agent_email.some((e) => item.agent_email?.toLowerCase().includes(e.toLowerCase())));
@@ -74,6 +73,11 @@ export function applyTicketFilters(data, params = {}) {
     }
 
     // Text contains filters
+    if (topic) {
+        const topicLower = topic.toLowerCase();
+        result = result.filter((item) => item.topic?.toLowerCase().includes(topicLower));
+    }
+
     if (chat_transcript) {
         const lower = chat_transcript.toLowerCase();
         result = result.filter((item) => item.chat_transcript?.toLowerCase().includes(lower));

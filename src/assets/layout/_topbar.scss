@@ -1,19 +1,20 @@
 @use 'mixins' as *;
 
 html {
+    --app-topbar-highlight-bg: var(--p-primary-800);
+
     &.app-dark {
-        .layout-topbar-action-highlight {
-            background-color: var(--primary-color) !important;
-            color: var(--primary-contrast-color) !important;
-            &:hover {
-                background-color: var(--primary-color) !important;
-                color: var(--primary-contrast-color) !important;
-            }
-        }
+        --app-topbar-highlight-bg: var(--primary-color);
     }
+
     .layout-topbar-action-highlight {
-        background-color: var(--p-primary-800) !important;
+        background-color: var(--app-topbar-highlight-bg) !important;
         color: var(--primary-contrast-color) !important;
+
+        &:hover {
+            background-color: var(--app-topbar-highlight-bg) !important;
+            color: var(--primary-contrast-color) !important;
+        }
     }
 }
 

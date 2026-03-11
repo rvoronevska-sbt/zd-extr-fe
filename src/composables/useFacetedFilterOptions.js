@@ -14,6 +14,7 @@ export function useFacetedFilterOptions(filters, tickets) {
     const baseFilterParams = computed(() => ({
         globalFilter: filters.value.global?.value || '',
         ticketid: filters.value.ticketid?.value,
+        topic: filters.value.topic?.value,
         csat_score: filters.value.csat_score?.value,
         sentiment: filters.value.sentiment?.value,
         chat_transcript: filters.value.chat_transcript?.value,
@@ -26,7 +27,6 @@ export function useFacetedFilterOptions(filters, tickets) {
     // All currently active multiselect values
     const activeMultiselects = computed(() => ({
         brand: filters.value.brand?.value ?? [],
-        topic: filters.value.topic?.value ?? [],
         vip_level: filters.value.vip_level?.value ?? [],
         customer_email: filters.value.customer_email?.value ?? [],
         agent_email: filters.value.agent_email?.value ?? [],
@@ -41,7 +41,6 @@ export function useFacetedFilterOptions(filters, tickets) {
         return [...new Set(values)].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     }
 
-    const availableTopics = computed(() => facetedOptions('topic', (t) => [t.topic]));
     const availableBrands = computed(() => facetedOptions('brand', (t) => [t.brand]));
     const availableVipLevels = computed(() => facetedOptions('vip_level', (t) => [t.vip_level]));
     const availableCustomerEmails = computed(() => facetedOptions('customer_email', (t) => [t.customer_email]));
@@ -49,7 +48,6 @@ export function useFacetedFilterOptions(filters, tickets) {
     const availableChatTags = computed(() => facetedOptions('_chatTagsString', (t) => t.chat_tags ?? []));
 
     return {
-        availableTopics,
         availableBrands,
         availableVipLevels,
         availableCustomerEmails,

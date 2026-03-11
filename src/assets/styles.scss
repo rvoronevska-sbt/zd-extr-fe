@@ -2,114 +2,145 @@
 @use 'primeicons/primeicons.css';
 @use '@/assets/layout/layout.scss';
 
+/* ── Theme-aware CSS custom properties ─────────────────────────────────────
+   Define light defaults here; dark overrides in html.app-dark below.
+   All component rules reference these vars — no duplicated light/dark blocks.
+   ────────────────────────────────────────────────────────────────────────── */
 html {
+    --app-shadow-color: var(--p-primary-800);
+    --app-img-filter-action: invert(23%) sepia(6%) saturate(3120%) hue-rotate(176deg) brightness(86%) contrast(85%);
+    --app-img-filter-stats: invert(37%) sepia(20%) saturate(2572%) hue-rotate(121deg) brightness(87%) contrast(97%);
+    --app-dt-info-color: var(--p-tag-primary-color);
+    --app-text-primary: var(--p-primary-800);
+    --app-btn-outlined-border: var(--p-primary-800);
+    --app-btn-outlined-color: var(--p-primary-800);
+    --app-btn-outlined-hover-border: var(--p-primary-950);
+    --app-btn-outlined-hover-color: var(--p-primary-950);
+    --app-btn-primary-bg: var(--p-primary-800);
+    --app-btn-primary-border: var(--p-primary-800);
+    --app-btn-primary-hover-bg: var(--p-primary-700);
+    --app-btn-primary-hover-border: var(--p-primary-700);
+    --app-btn-warn-bg: var(--button-warn-dark-bg);
+    --app-btn-warn-hover-bg: var(--button-warn-dark-hover-bg);
+    --app-btn-danger-bg: var(--button-danger-dark-bg);
+    --app-btn-danger-hover-bg: var(--button-danger-dark-hover-bg);
+
     &.app-dark {
-        .layout-topbar, .stats-widget-cards, .data-table, .dt-info-card {
-            box-shadow: .0875rem .0875rem .25rem var(--primary-color) !important;
-        }
-        #mode-toggle-button, #user-profile-button, .stats-icon-box {
-            img {
-                filter: invert(100%) sepia(100%) saturate(0%) hue-rotate(287deg) brightness(108%) contrast(101%) !important;
-            }
-        }
-        .dt-info-p {
-            color: var(--text-color) !important;
-        }
-        .text-primary {
-            color: var(--primary-color) !important;
-        }
-        .p-button-outlined {
-            border-color: var(--p-button-outlined-primary-border-color) !important;
-            color: var(--p-button-outlined-primary-color) !important;
-            &:hover, &:active {
-                border-color: var(--p-button-outlined-primary-hover-border-color) !important;
-                color: var(--p-button-outlined-primary-hover-color) !important;
-            }
-            &:hover {
-                background: var(--p-button-outlined-primary-hover-background) !important;
-            }
-            &:active {
-                background: var(--p-button-outlined-primary-active-background) !important;
-            }
-        }
-        .p-button {
-            &.w-full, &.p-datatable-filter-apply-button {
-                background: var(--p-button-primary-background) !important;
-                border: 1px solid var(--p-button-primary-border-color) !important;
-            }
-        }
-        .p-button-warn {
-            background: var(--p-button-warn-background) !important;
-            border: 1px solid var(--p-button-warn-border-color) !important;
-            color: var(--p-button-warn-color) !important;
-        }
-        .p-button-danger {
-            background: var(--p-button-danger-background) !important;
-            border: 1px solid var(--p-button-danger-border-color) !important;
-            color: var(--p-button-danger-color) !important;
-        }
+        --app-shadow-color: var(--primary-color);
+        --app-img-filter-action: invert(100%) sepia(100%) saturate(0%) hue-rotate(287deg) brightness(108%) contrast(101%);
+        --app-img-filter-stats: invert(100%) sepia(100%) saturate(0%) hue-rotate(287deg) brightness(108%) contrast(101%);
+        --app-dt-info-color: var(--text-color);
+        --app-text-primary: var(--primary-color);
+        --app-btn-outlined-border: var(--p-button-outlined-primary-border-color);
+        --app-btn-outlined-color: var(--p-button-outlined-primary-color);
+        --app-btn-outlined-hover-border: var(--p-button-outlined-primary-hover-border-color);
+        --app-btn-outlined-hover-color: var(--p-button-outlined-primary-hover-color);
+        --app-btn-primary-bg: var(--p-button-primary-background);
+        --app-btn-primary-border: var(--p-button-primary-border-color);
+        --app-btn-primary-hover-bg: var(--p-button-primary-hover-background);
+        --app-btn-primary-hover-border: var(--p-button-primary-hover-border-color);
+        --app-btn-warn-bg: var(--p-button-warn-background);
+        --app-btn-warn-hover-bg: var(--p-button-warn-hover-background);
+        --app-btn-danger-bg: var(--p-button-danger-background);
+        --app-btn-danger-hover-bg: var(--p-button-danger-hover-background);
     }
-    .layout-topbar, .stats-widget-cards, .data-table, .dt-info-card {
-        box-shadow: .0875rem .0875rem .25rem var(--p-primary-800) !important;
+}
+
+/* ── Surface shadows ──────────────────────────────────────────────────────── */
+.layout-topbar,
+.stats-widget-cards,
+.data-table,
+.dt-info-card,
+.vip-table {
+    box-shadow: .0875rem .0875rem .25rem var(--app-shadow-color) !important;
+}
+
+/* ── Icon image filters ───────────────────────────────────────────────────── */
+#mode-toggle-button img,
+#user-profile-button img {
+    filter: var(--app-img-filter-action) !important;
+}
+
+.stats-icon-box {
+    background: var(--p-button-outlined-primary-active-background) !important;
+    img {
+        filter: var(--app-img-filter-stats) !important;
     }
-    #mode-toggle-button, #user-profile-button {
-        img {
-            filter: invert(23%) sepia(6%) saturate(3120%) hue-rotate(176deg) brightness(86%) contrast(85%) !important;
-        }
+}
+
+/* ── Info strip ───────────────────────────────────────────────────────────── */
+.dt-info-p {
+    background: var(--p-button-outlined-primary-active-background) !important;
+    color: var(--app-dt-info-color) !important;
+}
+
+/* ── Text primary ─────────────────────────────────────────────────────────── */
+.text-primary {
+    color: var(--app-text-primary) !important;
+}
+
+/* ── Outlined button overrides ────────────────────────────────────────────── */
+.p-button-outlined {
+    border-color: var(--app-btn-outlined-border) !important;
+    color: var(--app-btn-outlined-color) !important;
+
+    &:hover,
+    &:active {
+        border-color: var(--app-btn-outlined-hover-border) !important;
+        color: var(--app-btn-outlined-hover-color) !important;
     }
-    .stats-icon-box, .dt-info-p {
+
+    &:hover {
+        background: var(--p-button-outlined-primary-hover-background) !important;
+    }
+
+    &:active {
         background: var(--p-button-outlined-primary-active-background) !important;
-        img {
-            filter: invert(37%) sepia(20%) saturate(2572%) hue-rotate(121deg) brightness(87%) contrast(97%) !important;
-        }
     }
-    .dt-info-p {
-        color: var(--p-tag-primary-color) !important;
-    }
-    .text-primary {
-        color: var(--p-primary-800);
-    }
-    .p-button-outlined {
-        border-color: var(--p-primary-800) !important;
-        color: var(--p-primary-800) !important; ;
-        &:hover, &:active {
-            border-color: var(--p-primary-950) !important;
-            color: var(--p-primary-950) !important;
-        }
-    }
-    .p-button {
-        &.w-full, &.p-datatable-filter-apply-button {
-            background: var(--p-primary-800) !important;
-            border: 1px solid var(--p-primary-800) !important;
-            &:hover, &:active {
-                background: var(--p-primary-700) !important;
-                border: 1px solid var(--p-primary-700) !important;
-            }
-        }
-    }
-    .p-button-warn {
-        background: var(--button-warn-dark-bg) !important;
-        border: 1px solid var(--button-warn-dark-bg) !important;
-        color: var(--p-button-warn-color) !important;
-        &:hover, &:active {
-            background: var(--button-warn-dark-hover-bg) !important;
-            border: 1px solid var(--button-warn-dark-hover-bg) !important;
-        }
-    }
-    .p-button-danger {
-        background: var(--button-danger-dark-bg) !important;
-        border: 1px solid var(--button-danger-dark-bg) !important;
-        color: var(--p-button-danger-color) !important;
-        &:hover, &:active {
-            background: var(--button-danger-dark-hover-bg) !important;
-            border: 1px solid var(--button-danger-dark-hover-bg) !important;
+}
+
+/* ── Primary button overrides ─────────────────────────────────────────────── */
+.p-button {
+    &.w-full,
+    &.p-datatable-filter-apply-button {
+        background: var(--app-btn-primary-bg) !important;
+        border: 1px solid var(--app-btn-primary-border) !important;
+
+        &:hover,
+        &:active {
+            background: var(--app-btn-primary-hover-bg) !important;
+            border-color: var(--app-btn-primary-hover-border) !important;
         }
     }
 }
 
-.summary-text {
-  white-space: pre-line;
+/* ── Warn button overrides ────────────────────────────────────────────────── */
+.p-button-warn {
+    background: var(--app-btn-warn-bg) !important;
+    border: 1px solid var(--app-btn-warn-bg) !important;
+    color: var(--p-button-warn-color) !important;
+
+    &:hover,
+    &:active {
+        background: var(--app-btn-warn-hover-bg) !important;
+        border-color: var(--app-btn-warn-hover-bg) !important;
+    }
 }
-.layout-topbar, .stats-widget-cards, .data-table, .dt-info-card, .vip-table {
-    box-shadow: .0875rem .0875rem .25rem var(--p-primary-800) !important;
+
+/* ── Danger button overrides ──────────────────────────────────────────────── */
+.p-button-danger {
+    background: var(--app-btn-danger-bg) !important;
+    border: 1px solid var(--app-btn-danger-bg) !important;
+    color: var(--p-button-danger-color) !important;
+
+    &:hover,
+    &:active {
+        background: var(--app-btn-danger-hover-bg) !important;
+        border-color: var(--app-btn-danger-hover-bg) !important;
+    }
+}
+
+/* ── Misc ─────────────────────────────────────────────────────────────────── */
+.summary-text {
+    white-space: pre-line;
 }

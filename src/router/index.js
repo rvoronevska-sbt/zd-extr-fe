@@ -1,15 +1,31 @@
 import { useAuthStore } from '@/stores/auth';
 import { createRouter, createWebHistory } from 'vue-router';
-import Login from '@/views/pages/auth/Login.vue';
-import HomeView from '@/views/HomeView.vue';
-import AccessDenied from '@/views/pages/auth/Access.vue';
-import Error from '@/views/pages/auth/Error.vue';
 
 const routes = [
-    { path: '/login', name: 'login', component: Login, meta: { requiresGuest: true, hideNavbar: true } },
-    { path: '/', name: 'home', component: HomeView, meta: { requiresAuth: true } },
-    { path: '/error', name: 'error', component: Error, meta: { hideNavbar: true } },
-    { path: '/access-denied', name: 'access-denied', component: AccessDenied, meta: { hideNavbar: true } }
+    {
+        path: '/login',
+        name: 'login',
+        component: () => import('@/views/pages/auth/Login.vue'),
+        meta: { requiresGuest: true, hideNavbar: true }
+    },
+    {
+        path: '/',
+        name: 'home',
+        component: () => import('@/views/HomeView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/error',
+        name: 'error',
+        component: () => import('@/views/pages/auth/Error.vue'),
+        meta: { hideNavbar: true }
+    },
+    {
+        path: '/access-denied',
+        name: 'access-denied',
+        component: () => import('@/views/pages/auth/Access.vue'),
+        meta: { hideNavbar: true }
+    }
 ];
 
 const router = createRouter({

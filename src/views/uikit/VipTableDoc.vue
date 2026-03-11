@@ -151,14 +151,11 @@ function getCsatClass(csat) {
 <template>
     <div v-if="filteredTickets.length > 0 && hasVipData" class="vip-table card mt-8">
         <!-- Info banner – matches TableDoc pattern -->
-        <div class="dt-info-card card mb-6 p-4">
+        <div class="dt-info-card card mb-8 p-4">
             <p class="inline-block dt-info-p rounded-xl py-2 px-3">
-                Aggregated from <strong>{{ tableStore.filteredTickets?.length || 0 }}</strong> filtered tickets &nbsp;·&nbsp; date range: <strong>{{ dateRange.start ? formatDate(dateRange.start) : '—' }}</strong> to
-                <strong>{{ dateRange.end ? formatDate(dateRange.end) : '—' }}</strong>
+                Aggregated from <strong>{{ tableStore.filteredTickets?.length || 0 }}</strong> filtered tickets (date range: {{ dateRange.start ? formatDate(dateRange.start) : '—' }} to {{ dateRange.end ? formatDate(dateRange.end) : '—' }})
             </p>
         </div>
-
-        <div class="font-semibold text-xl mb-4">VIP Customer Segments by Date</div>
 
         <DataTable
             :value="groupedData"
@@ -171,41 +168,28 @@ function getCsatClass(csat) {
             showGridlines
             responsiveLayout="scroll"
             :pt="{
-                table: { class: 'w-full text-sm' }
+                table: { class: 'w-full text-sm text-gray-700 dark:text-gray-300' },
+                thead: { class: 'bg-gray-100 dark:bg-gray-700' },
+                tbody: { class: '' },
+                column: { root: { class: 'border-r last:border-r-0' } } // optional per-column tweaks
             }"
         >
-            <!-- Segment column -->
-            <Column header="Customer Segment" field="segment" :sortable="false" style="min-width: 160px; padding: 0">
+            <Column header="Customer Segment" field="segment" :sortable="false" style="min-width: 180px; font-weight: bold; text-align: center; padding: 0">
                 <template #body="{ data }">
-                    <div :class="['segment-cell', getSegmentRowClass(data.segment)]">
-                        <span class="segment-dot" :class="'dot-' + data.segment.toLowerCase()"></span>
-                        <span class="segment-label">{{ data.segment }}</span>
-                    </div>
+                    <div :class="getSegmentRowClass(data.segment)" class="p-8 dark:text-[var(--surface-ground)]">{{ data.segment }}</div>
                 </template>
             </Column>
 
-            <!-- Dynamic date columns -->
-            <Column v-for="date in dates" :key="date.toISOString()" :header="formatDate(date)" style="min-width: 148px; padding: 0">
+            <!-- Dynamic columns – one set per date -->
+            <Column v-for="date in dates" :key="date.toISOString()" :header="formatDate(date)" style="min-width: 140px; text-align: center; vertical-align: text-bottom; padding: 0">
                 <template #body="{ data }">
-                    <div class="date-cell">
-                        <!-- CSAT row -->
-                        <div class="cell-row csat-row" :class="getCsatClass(data[`csat_${date.toISOString().split('T')[0]}`])">
-                            <span class="cell-label">CSAT</span>
-                            <span class="cell-value csat-value">{{ data[`csat_${date.toISOString().split('T')[0]}`] }}</span>
+                    <div class="grid grid-cols-1 gap-0 text-sm p-0">
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)" :class="data[`csat_${date.toISOString().split('T')[0]}`] !== '—' ? 'bg-yellow-100 dark:text-[var(--surface-ground)]' : ''">
+                            CSAT: {{ data[`csat_${date.toISOString().split('T')[0]}`] }}
                         </div>
-                        <!-- Stats rows -->
-                        <div class="cell-row">
-                            <span class="cell-label good-label">✓ Good</span>
-                            <span class="cell-value">{{ data[`good_${date.toISOString().split('T')[0]}`] }}</span>
-                        </div>
-                        <div class="cell-row">
-                            <span class="cell-label bad-label">✗ Bad</span>
-                            <span class="cell-value">{{ data[`bad_${date.toISOString().split('T')[0]}`] }}</span>
-                        </div>
-                        <div class="cell-row rated-row">
-                            <span class="cell-label">Rated</span>
-                            <span class="cell-value rated-value">{{ data[`rated_${date.toISOString().split('T')[0]}`] }}</span>
-                        </div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">Good rates: {{ data[`good_${date.toISOString().split('T')[0]}`] }}</div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">Bad rates: {{ data[`bad_${date.toISOString().split('T')[0]}`] }}</div>
+                        <div>Rated: {{ data[`rated_${date.toISOString().split('T')[0]}`] }}</div>
                     </div>
                 </template>
             </Column>
@@ -214,264 +198,49 @@ function getCsatClass(csat) {
 </template>
 
 <style lang="scss" scoped>
-/* ── Table wrapper ─────────────────────────────── */
 .vip-table {
     :deep(.p-datatable) {
         .p-datatable-thead > tr > th {
-            background-color: var(--p-primary-50);
-            color: var(--p-primary-800);
+            background-color: var(--primary-50);
+            color: var(--primary-800);
             font-weight: 600;
-            font-size: 0.8rem;
-            letter-spacing: 0.03em;
-            padding: 10px 12px !important;
-            border-bottom: 2px solid var(--p-primary-200);
-
+            padding: 12px !important;
+            border-bottom-color: var(--text-color);
             .p-datatable-column-header-content {
                 justify-content: center;
             }
         }
 
-        .p-datatable-tbody > tr > td {
-            padding: 0 !important;
-            vertical-align: top;
-            border-color: var(--p-datatable-body-cell-border-color);
-        }
-
         .p-datatable-tbody > tr:last-child {
-            > td .segment-cell {
-                font-weight: 700;
-                background-color: var(--p-surface-200);
-                color: var(--p-text-color);
-            }
-            > td .date-cell {
-                background-color: var(--p-surface-100);
-            }
+            font-weight: bold;
+            background: var(--surface-200);
+        }
+
+        .p-datatable-tbody > tr > td {
+            border-bottom-color: var(--text-color);
         }
     }
 }
 
-/* Dark-mode header */
-:global(.app-dark) .vip-table :deep(.p-datatable) {
-    .p-datatable-thead > tr > th {
-        background-color: var(--p-primary-900);
-        color: var(--p-primary-100);
-        border-bottom-color: var(--p-primary-700);
-    }
-    .p-datatable-tbody > tr:last-child > td .segment-cell {
-        background-color: var(--p-surface-700);
-        color: var(--p-text-color);
-    }
-    .p-datatable-tbody > tr:last-child > td .date-cell {
-        background-color: var(--p-surface-800);
-    }
-}
-
-/* ── Segment column cell ───────────────────────── */
-.segment-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    height: 100%;
-    font-weight: 600;
-    font-size: 0.85rem;
-    letter-spacing: 0.02em;
-    transition: background 0.15s;
-}
-
-.segment-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-/* Segment colours – light */
-.segment-none {
-    background-color: #f8f9fa;
-    color: #555;
-}
 .segment-normal {
-    background-color: #e8f5e9;
-    color: #2e7d32;
+    background-color: #e6ffe6;
 }
 .segment-bronze {
     background-color: #fff3e0;
-    color: #bf360c;
 }
 .segment-silver {
     background-color: #e3f2fd;
-    color: #1565c0;
 }
 .segment-gold {
     background-color: #fffde7;
-    color: #f57f17;
 }
 .segment-platinum {
     background-color: #f3e5f5;
-    color: #6a1b9a;
 }
 .segment-diamond {
-    background-color: #eceff1;
-    color: #263238;
+    background-color: #f5f5f5;
 }
-
-.dot-none {
-    background-color: #9e9e9e;
-}
-.dot-normal {
-    background-color: #4caf50;
-}
-.dot-bronze {
-    background-color: #bf6030;
-}
-.dot-silver {
-    background-color: #90a4ae;
-}
-.dot-gold {
-    background-color: #ffc107;
-}
-.dot-platinum {
-    background-color: #ab47bc;
-}
-.dot-diamond {
-    background-color: #455a64;
-}
-.dot-total {
-    background-color: var(--p-primary-color);
-}
-
-/* Segment colours – dark */
-:global(.app-dark) {
-    .segment-none {
-        background-color: #2a2a2a;
-        color: #bbb;
-    }
-    .segment-normal {
-        background-color: #1b3a1c;
-        color: #a5d6a7;
-    }
-    .segment-bronze {
-        background-color: #3e2008;
-        color: #ffcc80;
-    }
-    .segment-silver {
-        background-color: #0d2a40;
-        color: #90caf9;
-    }
-    .segment-gold {
-        background-color: #3a2f00;
-        color: #ffe082;
-    }
-    .segment-platinum {
-        background-color: #2a0e33;
-        color: #ce93d8;
-    }
-    .segment-diamond {
-        background-color: #1a2a30;
-        color: #b0bec5;
-    }
-}
-
-/* ── Date cell ─────────────────────────────────── */
-.date-cell {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.cell-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px 12px;
-    font-size: 0.78rem;
-    border-bottom: 1px solid var(--p-datatable-body-cell-border-color);
-
-    &:last-child {
-        border-bottom: none;
-    }
-}
-
-.cell-label {
-    color: var(--p-text-muted-color);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 500;
-}
-
-.cell-value {
-    font-weight: 600;
-    font-size: 0.82rem;
-    color: var(--p-text-color);
-}
-
-.good-label {
-    color: #4caf50;
-}
-.bad-label {
-    color: #f44336;
-}
-
-.csat-row {
-    padding: 6px 12px;
-    border-bottom: 1px solid var(--p-datatable-body-cell-border-color);
-}
-
-.csat-value {
-    font-size: 0.88rem;
-}
-
-.csat-high {
-    background-color: rgba(76, 175, 80, 0.1);
-    .csat-value {
-        color: #2e7d32;
-    }
-}
-.csat-mid {
-    background-color: rgba(255, 193, 7, 0.1);
-    .csat-value {
-        color: #f57f17;
-    }
-}
-.csat-low {
-    background-color: rgba(244, 67, 54, 0.1);
-    .csat-value {
-        color: #c62828;
-    }
-}
-.csat-none {
-    .csat-value {
-        color: var(--p-text-muted-color);
-    }
-}
-
-.rated-row {
-    background-color: var(--p-surface-50);
-}
-:global(.app-dark) .rated-row {
-    background-color: var(--p-surface-800);
-}
-
-:global(.app-dark) {
-    .csat-high {
-        background-color: rgba(76, 175, 80, 0.18);
-        .csat-value {
-            color: #81c784;
-        }
-    }
-    .csat-mid {
-        background-color: rgba(255, 193, 7, 0.18);
-        .csat-value {
-            color: #ffd54f;
-        }
-    }
-    .csat-low {
-        background-color: rgba(244, 67, 54, 0.18);
-        .csat-value {
-            color: #e57373;
-        }
-    }
+.segment-none {
+    background-color: #fafafa;
 }
 </style>

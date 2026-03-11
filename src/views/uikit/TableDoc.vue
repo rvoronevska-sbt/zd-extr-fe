@@ -52,7 +52,7 @@ const createInitialFilters = () => ({
         ]
     },
     ticketid: { value: null, matchMode: FilterMatchMode.EQUALS },
-    topic: { value: [], matchMode: 'containsAny' },
+    topic: { value: null, matchMode: FilterMatchMode.CONTAINS },
     brand: { value: [], matchMode: 'containsAny' },
     vip_level: { value: [], matchMode: 'containsAny' },
     customer_email: { value: [], matchMode: 'containsAny' },
@@ -109,7 +109,7 @@ const filteredTickets = computed(() =>
         globalFilter: filters.value.global?.value || '',
         ticketid: filters.value.ticketid?.value,
         brand: filters.value.brand?.value ?? [],
-        topic: filters.value.topic?.value ?? [],
+        topic: filters.value.topic?.value,
         vip_level: filters.value.vip_level?.value ?? [],
         customer_email: filters.value.customer_email?.value ?? [],
         agent_email: filters.value.agent_email?.value ?? [],
@@ -127,7 +127,7 @@ const filteredTickets = computed(() =>
 // ────────────────────────────────────────────────
 // Faceted multiselect options
 // ────────────────────────────────────────────────
-const { availableTopics, availableBrands, availableVipLevels, availableCustomerEmails, availableAgentEmails, availableChatTags } = useFacetedFilterOptions(filters, fullProcessedTickets);
+const { availableBrands, availableVipLevels, availableCustomerEmails, availableAgentEmails, availableChatTags } = useFacetedFilterOptions(filters, fullProcessedTickets);
 
 const paginatedTickets = computed(() => {
     const start = (lazyParams.value.page - 1) * lazyParams.value.limit;
@@ -308,14 +308,14 @@ function clearFilter() {
                 </template>
             </Column>
 
-            <Column header="Topic" filterField="topic" :showFilterMatchModes="false" style="min-width: 15rem">
+            <Column header="Topic" filterField="topic" style="min-width: 15rem">
                 <template #body="{ data }">
                     <div class="flex flex-wrap gap-1">
                         <Tag :value="data.topic" severity="warn" />
                     </div>
                 </template>
-                <template #filter="{ filterModel, filterCallback }">
-                    <MultiSelect v-model="filterModel.value" :options="availableTopics" placeholder="Any Topic" display="chip" :filter="true" showClear @change="filterCallback()" />
+                <template #filter="{ filterModel }">
+                    <InputText v-model="filterModel.value" type="text" placeholder="Filter by Topic" />
                 </template>
             </Column>
 

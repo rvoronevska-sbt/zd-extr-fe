@@ -28,32 +28,56 @@ const toArray = (value) => {
     return [];
 };
 
-// ── Process raw records into the shape the table expects ──
-function processRecords(rawData) {
-    fullProcessedTickets.value = rawData.map((ticket) => {
-        const tags = toArray(ticket.chat_tags).filter((t) => typeof t === 'string' && t.trim());
+// ── Process a single raw ticket into the shape the table expects ──
+function processTicket(ticket) {
+    const tags = toArray(ticket.chat_tags).filter((t) => typeof t === 'string' && t.trim());
+    const normalized = Object.fromEntries(NORMALIZE_FIELDS.map((field) => [field, emptyToNone(ticket[field])]));
+    const longText = Object.fromEntries(LONG_TEXT_FIELDS.map((field) => [field, normalizeTranscript(ticket[field])]));
+    return {
+        ...ticket,
+        ...normalized,
+        ...longText,
+        timestamp: new Date(ticket.timestamp),
+        _chatTagsString: tags
+            .map((t) => t.trim().toLowerCase())
+            .sort()
+            .join(', ')
+    };
+}
 
-        const normalized = Object.fromEntries(NORMALIZE_FIELDS.map((field) => [field, emptyToNone(ticket[field])]));
-        const longText = Object.fromEntries(LONG_TEXT_FIELDS.map((field) => [field, normalizeTranscript(ticket[field])]));
+// ── Yield to the browser event loop between processing batches ──
+// scheduler.yield() (Chrome 129+) resumes immediately after yielding with high priority;
+// setTimeout fallback adds ~1ms per batch but is universally supported.
+function yieldToMain() {
+    if (typeof scheduler !== 'undefined' && typeof scheduler.yield === 'function') {
+        return scheduler.yield();
+    }
+    return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
-        return {
-            ...ticket,
-            ...normalized,
-            ...longText,
-            timestamp: new Date(ticket.timestamp),
-            _chatTagsString: tags
-                .map((t) => t.trim().toLowerCase())
-                .sort()
-                .join(', ')
-        };
-    });
+// ── Process raw records in batches to keep main-thread tasks under 50ms ──
+// 30k tickets / 150 per batch = 200 batches, each ~30ms → TBT drops to near-zero.
+const PROCESS_BATCH_SIZE = 150;
+
+async function processRecords(rawData) {
+    const result = new Array(rawData.length);
+    for (let i = 0; i < rawData.length; i += PROCESS_BATCH_SIZE) {
+        const end = Math.min(i + PROCESS_BATCH_SIZE, rawData.length);
+        for (let j = i; j < end; j++) {
+            result[j] = processTicket(rawData[j]);
+        }
+        if (end < rawData.length) {
+            await yieldToMain();
+        }
+    }
+    fullProcessedTickets.value = result;
 }
 
 // ── Fetch from API and store raw data in IDB ──
 async function fetchAndCache() {
     const response = await api.get('/api/ticket-summaries/');
     const raw = Array.isArray(response.data) ? response.data : (response.data.results ?? []);
-    processRecords(raw);
+    await processRecords(raw);
     // Write to IDB in the background — don't block the UI on IDB writes
     setCachedTickets(raw).catch((err) => console.warn('IDB write failed:', err));
 }
@@ -78,7 +102,7 @@ async function lazyInit() {
         try {
             if (USE_MOCK) {
                 const { default: mockData } = await import('@/services/mock-ticket-summaries.json');
-                processRecords(mockData);
+                await processRecords(mockData);
                 isInitialized = true;
                 return;
             }
@@ -88,7 +112,7 @@ async function lazyInit() {
 
             if (cached?.data?.length) {
                 // Serve cached data immediately — UI renders at once
-                processRecords(cached.data);
+                await processRecords(cached.data);
                 isLoading.value = false;
                 isInitialized = true;
 
