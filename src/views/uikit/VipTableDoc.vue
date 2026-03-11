@@ -5,7 +5,7 @@ import { formatDate } from '@/utils/dateUtils';
 import { VIP_SEGMENT_ORDER as SEGMENT_ORDER } from '@/config/enums';
 
 const CSAT_HIGH_THRESHOLD = 80; // % — green
-const CSAT_MID_THRESHOLD = 50;  // % — yellow; below this is red
+const CSAT_MID_THRESHOLD = 50; // % — yellow; below this is red
 
 const tableStore = useTableStore();
 
@@ -40,7 +40,6 @@ const dates = computed(() => {
     return res;
 });
 
-
 function initVipStats(dateKeys) {
     const vipStats = {};
     SEGMENT_ORDER.forEach((vip) => {
@@ -53,14 +52,14 @@ function initVipStats(dateKeys) {
 }
 
 function aggregateTickets(vipStats, tickets) {
-    tickets.forEach((customer) => {
-        const vip = (customer.vip_level || 'none').toLowerCase();
-        const ts = new Date(customer.timestamp);
+    tickets.forEach((ticket) => {
+        const vip = (ticket.vip_level || 'none').toLowerCase();
+        const ts = new Date(ticket.timestamp);
         ts.setHours(0, 0, 0, 0);
         const dateKey = ts.toISOString().split('T')[0];
         const bucket = vipStats[vip]?.perDate[dateKey];
         if (!bucket) return;
-        const csat = customer.csat_score?.toLowerCase();
+        const csat = ticket.csat_score?.toLowerCase();
         if (csat === 'good') bucket.good++;
         if (csat === 'bad') bucket.bad++;
         if (csat === 'good' || csat === 'bad') bucket.rated++;
@@ -95,7 +94,9 @@ function buildTotalsRow(vipStats, dateValues) {
     const totalRow = { segment: 'TOTAL' };
     dateValues.forEach((date) => {
         const dateKey = date.toISOString().split('T')[0];
-        let good = 0, bad = 0, rated = 0;
+        let good = 0,
+            bad = 0,
+            rated = 0;
         Object.values(vipStats).forEach((group) => {
             const s = group.perDate[dateKey];
             good += s.good;
@@ -121,6 +122,8 @@ const groupedData = computed(() => {
     return rows;
 });
 
+// Show the table only when there are filtered tickets that have a meaningful VIP level
+const hasVipData = computed(() => filteredTickets.value.some((t) => t.vip_level && t.vip_level !== 'none'));
 
 function getSegmentRowClass(segment) {
     const map = {
@@ -146,7 +149,7 @@ function getCsatClass(csat) {
 </script>
 
 <template>
-    <div class="vip-table card mt-8">
+    <div v-if="filteredTickets.length > 0 && hasVipData" class="vip-table card mt-8">
         <!-- Info banner – matches TableDoc pattern -->
         <div class="dt-info-card card mb-6 p-4">
             <p class="inline-block dt-info-p rounded-xl py-2 px-3">

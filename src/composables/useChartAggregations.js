@@ -47,9 +47,12 @@ export function useTopicCharts() {
         ]
     }));
 
+    const hasChartData = computed(() => labels.value.length > 0);
+
     return {
         barDataTotalNegative,
         barDataNegativeOnly,
-        lineDataPercent
+        lineDataPercent,
+        hasChartData
     };
 }

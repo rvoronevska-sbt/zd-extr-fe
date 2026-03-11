@@ -28,7 +28,30 @@ export default defineConfig({
         tailwindcss(),
         Components({
             resolvers: [PrimeVueResolver()]
-        })
+        }),
+        {
+            // Rewrite primeicons font URL references to /zd-extr-fe/fonts/primeicons/
+            // so Vite doesn't bundle them into dist/assets/ (absolute URLs are not processed as assets).
+            // The actual files live in public/fonts/primeicons/ — committed to git, frozen from package updates.
+            // enforce: 'pre' ensures this runs BEFORE Vite's CSS plugin processes url() references.
+            name: 'primeicons-local-fonts',
+            enforce: 'pre',
+            transform(code, id) {
+                if (!id.includes('primeicons') || !id.endsWith('.css')) return null;
+                return code.replace(
+                    /url\(['"]?\.\/fonts\/(primeicons\.[^'"?)\s]+)[^'")\s]*['"]?\)/g,
+                    "url('/zd-extr-fe/fonts/primeicons/$1')"
+                );
+            },
+            // Safety net: remove any primeicons font files that still ended up in dist/assets/.
+            // Bundle keys use hashed names (e.g. assets/primeicons-C6QP2o4f.woff2) — match accordingly.
+            generateBundle(_, bundle) {
+                const primeiconsFontRE = /primeicons[^/]*\.(eot|svg|ttf|woff2?)$/;
+                for (const key of Object.keys(bundle)) {
+                    if (primeiconsFontRE.test(key)) delete bundle[key];
+                }
+            }
+        }
     ],
 
     build: {

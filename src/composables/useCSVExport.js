@@ -1,6 +1,6 @@
-const CSV_BYTES_PER_ROW = 200;        // rough estimate for file size warning
+const CSV_BYTES_PER_ROW = 200; // rough estimate for file size warning
 const CSV_ROW_WARN_THRESHOLD = 10_000; // warn if export exceeds this many rows
-const CSV_SIZE_WARN_MB = 2;            // warn if estimated size exceeds this (MB)
+const CSV_SIZE_WARN_MB = 2; // warn if estimated size exceeds this (MB)
 
 export function useCSVExport(dataTable, filteredRows, processedCustomers, formatDate) {
     const escapeCSVField = (field) => {
@@ -33,31 +33,26 @@ export function useCSVExport(dataTable, filteredRows, processedCustomers, format
 
         // Warn if exporting large datasets (>10k rows or >2MB)
         if (rowCount > CSV_ROW_WARN_THRESHOLD || parseFloat(estimatedSizeMB) > CSV_SIZE_WARN_MB) {
-            const warned = confirm(
-                `⚠️ Large export detected!\n\n` +
-                `Rows: ${rowCount.toLocaleString()}\n` +
-                `Estimated size: ~${estimatedSizeMB} MB\n\n` +
-                `This may take a moment. Continue?`
-            );
+            const warned = confirm(`⚠️ Large export detected!\n\n` + `Rows: ${rowCount.toLocaleString()}\n` + `Estimated size: ~${estimatedSizeMB} MB\n\n` + `This may take a moment. Continue?`);
             if (!warned) return;
         }
 
         const headers = ['Date', 'Topic', 'Ticket ID', 'Brand', 'VIP Level', 'Customer Email', 'Agent Email', 'CSAT Score', 'Chat Tags', 'Chat Transcript', 'Email Transcript', 'Sentiment', 'Summary'];
 
-        const rows = dataToExport.map((customer) => [
-            formatDate(customer.timestamp),
-            customer.topic,
-            customer.ticketid,
-            customer.brand,
-            customer.vip_level,
-            customer.customer_email,
-            customer.agent_email,
-            customer.csat_score,
-            customer._chatTagsString,
-            customer.chat_transcript,
-            customer.email_transcript,
-            customer.sentiment,
-            customer.summary
+        const rows = dataToExport.map((ticket) => [
+            formatDate(ticket.timestamp),
+            ticket.topic,
+            ticket.ticketid,
+            ticket.brand,
+            ticket.vip_level,
+            ticket.customer_email,
+            ticket.agent_email,
+            ticket.csat_score,
+            ticket._chatTagsString,
+            ticket.chat_transcript,
+            ticket.email_transcript,
+            ticket.sentiment,
+            ticket.summary
         ]);
 
         const csvLines = [headers.map(escapeCSVField).join(','), ...rows.map((row) => row.map(escapeCSVField).join(','))];
@@ -69,7 +64,7 @@ export function useCSVExport(dataTable, filteredRows, processedCustomers, format
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `customers-${new Date().toLocaleDateString('en-CA')}.csv`;
+        link.download = `tickets-${new Date().toLocaleDateString('en-CA')}.csv`;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();

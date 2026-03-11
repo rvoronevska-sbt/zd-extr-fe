@@ -1,8 +1,9 @@
 <script setup>
 import { FilterMatchMode, FilterOperator, FilterService } from '@primevue/core/api';
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 
-import { useArrayMultiSelects } from '@/composables/useArrayMultiSelects';
+import { useTicketData } from '@/composables/useTicketData';
+import { useFacetedFilterOptions } from '@/composables/useFacetedFilterOptions';
 import { useCSVExport } from '@/composables/useCSVExport';
 import { cleanAndFormatString } from '@/utils/stringUtils';
 import { applyTicketFilters } from '@/utils/ticketFilters';
@@ -31,7 +32,9 @@ FilterService.register('containsAny', (value, filter) => {
 // ────────────────────────────────────────────────
 // Composables & full data
 // ────────────────────────────────────────────────
-const { allChatTags, allTopics, allBrands, allVipLevels, allCustomerEmails, allAgentEmails, fullProcessedTickets, isLoading } = useArrayMultiSelects(); // full dataset – no param
+const { fullProcessedTickets, isLoading, _lazyInit } = useTicketData();
+
+onMounted(() => _lazyInit());
 
 // ────────────────────────────────────────────────
 // State
@@ -120,6 +123,11 @@ const filteredTickets = computed(() =>
         endDate: filters.value.timestamp?.constraints?.[1]?.value
     })
 );
+
+// ────────────────────────────────────────────────
+// Faceted multiselect options
+// ────────────────────────────────────────────────
+const { availableTopics, availableBrands, availableVipLevels, availableCustomerEmails, availableAgentEmails, availableChatTags } = useFacetedFilterOptions(filters, fullProcessedTickets);
 
 const paginatedTickets = computed(() => {
     const start = (lazyParams.value.page - 1) * lazyParams.value.limit;
@@ -307,7 +315,7 @@ function clearFilter() {
                     </div>
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <MultiSelect v-model="filterModel.value" :options="allTopics" placeholder="Any Topic" display="chip" :filter="true" showClear @change="filterCallback()" />
+                    <MultiSelect v-model="filterModel.value" :options="availableTopics" placeholder="Any Topic" display="chip" :filter="true" showClear @change="filterCallback()" />
                 </template>
             </Column>
 
@@ -327,7 +335,7 @@ function clearFilter() {
                     </div>
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <MultiSelect v-model="filterModel.value" :options="allBrands" placeholder="Any Brand" display="chip" :filter="true" showClear @change="filterCallback()" />
+                    <MultiSelect v-model="filterModel.value" :options="availableBrands" placeholder="Any Brand" display="chip" :filter="true" showClear @change="filterCallback()" />
                 </template>
             </Column>
 
@@ -338,7 +346,7 @@ function clearFilter() {
                     </div>
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <MultiSelect v-model="filterModel.value" :options="allVipLevels" placeholder="Any VIP Level" display="chip" :filter="true" showClear @change="filterCallback()" />
+                    <MultiSelect v-model="filterModel.value" :options="availableVipLevels" placeholder="Any VIP Level" display="chip" :filter="true" showClear @change="filterCallback()" />
                 </template>
             </Column>
 
@@ -347,7 +355,7 @@ function clearFilter() {
                     {{ data.customer_email || '-' }}
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <MultiSelect v-model="filterModel.value" :options="allCustomerEmails" placeholder="Any Customer Email" display="chip" :filter="true" showClear @change="filterCallback()" />
+                    <MultiSelect v-model="filterModel.value" :options="availableCustomerEmails" placeholder="Any Customer Email" display="chip" :filter="true" showClear @change="filterCallback()" />
                 </template>
             </Column>
 
@@ -356,7 +364,7 @@ function clearFilter() {
                     {{ data.agent_email || '-' }}
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <MultiSelect v-model="filterModel.value" :options="allAgentEmails" placeholder="Any Agent Email" display="chip" :filter="true" showClear @change="filterCallback()" />
+                    <MultiSelect v-model="filterModel.value" :options="availableAgentEmails" placeholder="Any Agent Email" display="chip" :filter="true" showClear @change="filterCallback()" />
                 </template>
             </Column>
 
@@ -380,7 +388,7 @@ function clearFilter() {
                     </div>
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <MultiSelect v-model="filterModel.value" :options="allChatTags" placeholder="Filter by Chat Tags" display="chip" :filter="true" showClear @change="filterCallback()">
+                    <MultiSelect v-model="filterModel.value" :options="availableChatTags" placeholder="Filter by Chat Tags" display="chip" :filter="true" showClear @change="filterCallback()">
                         <template #option="slotProps">
                             <Tag :value="slotProps.option" />
                         </template>

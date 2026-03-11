@@ -1,9 +1,9 @@
 <script setup>
-import { useArrayMultiSelects } from '@/composables/useArrayMultiSelects';
+import { useTicketData } from '@/composables/useTicketData';
 import { computed } from 'vue';
 import { VIP_TIERS } from '@/config/enums';
 
-const { fullProcessedTickets } = useArrayMultiSelects();
+const { fullProcessedTickets } = useTicketData();
 
 const stats = computed(() => {
     let csatGood = 0,

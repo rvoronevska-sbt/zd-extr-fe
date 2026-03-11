@@ -5,7 +5,7 @@ import { onMounted, ref, watch } from 'vue';
 
 const { layoutConfig, isDarkTheme } = useLayout();
 
-const { barDataTotalNegative, barDataNegativeOnly, lineDataPercent } = useTopicCharts();
+const { barDataTotalNegative, barDataNegativeOnly, lineDataPercent, hasChartData } = useTopicCharts();
 
 const chartOptions = ref(null);
 
@@ -31,7 +31,7 @@ function setChartOptions() {
 </script>
 
 <template>
-    <div class="card">
+    <div class="card" v-if="hasChartData">
         <h2 class="font-semibold text-xl mb-6">Bar Chart – Topics Distribution</h2>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -53,7 +53,5 @@ function setChartOptions() {
                 <Chart type="line" :data="lineDataPercent" :options="chartOptions" />
             </div>
         </div>
-
-        <p v-if="!barDataTotalNegative.labels?.length" class="text-center text-500 mt-8">No data available after filtering</p>
     </div>
 </template>
