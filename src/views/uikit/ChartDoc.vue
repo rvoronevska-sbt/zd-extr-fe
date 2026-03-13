@@ -67,7 +67,7 @@ function setChartOptions() {
             <!-- Chart 1: Total + Negative -->
             <div>
                 <h3 class="font-medium text-center mb-3">Number of Chats</h3>
-                <div class="chart-scroll-outer">
+                <div class="w-full overflow-x-auto">
                     <Chart type="bar" :data="barDataTotalNegative" :options="chartOptions" :width="chartWidth" :height="CHART_HEIGHT" />
                 </div>
             </div>
@@ -75,7 +75,7 @@ function setChartOptions() {
             <!-- Chart 2: Negative only -->
             <div>
                 <h3 class="font-medium text-center mb-3">Negative Chats by Topic</h3>
-                <div class="chart-scroll-outer">
+                <div class="w-full overflow-x-auto">
                     <Chart type="bar" :data="barDataNegativeOnly" :options="chartOptions" :width="chartWidth" :height="CHART_HEIGHT" />
                 </div>
             </div>
@@ -83,17 +83,10 @@ function setChartOptions() {
             <!-- Chart 3: % Negative (line) -->
             <div>
                 <h3 class="font-medium text-center mb-3">% Negative Chats per Topic</h3>
-                <div class="chart-scroll-outer">
+                <div class="w-full overflow-x-auto">
                     <Chart type="line" :data="lineDataPercent" :options="chartOptions" :width="chartWidth" :height="CHART_HEIGHT" />
                 </div>
             </div>
         </div>
     </div>
 </template>
-
-<style scoped>
-.chart-scroll-outer {
-    overflow-x: auto;
-    width: 100%;
-}
-</style>
