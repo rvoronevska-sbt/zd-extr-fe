@@ -69,7 +69,7 @@ src/
 │   ├── useTicketData.js               # Core: data fetch, IDB cache, batched normalization, lazy init
 │   ├── useFacetedFilterOptions.js     # Cascading multiselect options derived from active filters
 │   ├── useCSVExport.js                # CSV generation with >10k row / >2 MB warnings
-│   └── useChartAggregations.js        # (legacy) chart data helpers — aggregations now also in tableStore
+│   └── useChartAggregations.js        # Top-N topic chart data (sliced from tableStore, capped at 100 topics)
 ├── services/
 │   ├── authApi.js                     # Axios instance with auto-refresh on 401
 │   ├── ticketCache.js                 # IndexedDB cache: get/set/isCacheStale (1-hour TTL)
@@ -123,8 +123,8 @@ src/
 | `chat_transcript` | string/null | `null` | text contains |
 | `email_transcript` | string/null | `null` | text contains |
 | `summary` | string/null | `null` | text contains |
-| `startDate` | Date/null | `null` | timestamp >= startDate |
-| `endDate` | Date/null | `null` | timestamp < endDate |
+| `startDate` | Date/null | today 00:00 | timestamp >= startDate |
+| `endDate` | Date/null | tomorrow 00:00 | timestamp < endDate |
 
 ### Faceted options (`useFacetedFilterOptions`)
 
@@ -135,6 +135,10 @@ src/
 - `brand`, `vip_level`, `customer_email`, `agent_email`, `_chatTagsString`
 
 Each `available*` computed calls `facetedOptions(excludeField, extractFn)` which zeroes out its own field and applies all others. Returned refs: `availableBrands`, `availableVipLevels`, `availableCustomerEmails`, `availableAgentEmails`, `availableChatTags`.
+
+### Quick date filters
+
+Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) set `startDate`/`endDate` via `setQuickDateFilter(period)`. Active state tracked by `activeQuickFilter` ref — the active button renders filled (like a PrimeVue `<Tag>` chip), inactive ones render `outlined`. Clicking the active button again **toggles it off** (clears the date range). **"Today" is active by default on load** — `createInitialFilters()` sets timestamps to today's range. `clearFilter()` resets dates to `null` and clears `activeQuickFilter`.
 
 > **To add a new multiselect filter**: add it to `activeMultiselects`, add a `facetedOptions(...)` computed, add to the return object. To add a new non-multiselect (text/date/select): add it to `baseFilterParams` only — no faceted computed needed.
 
@@ -190,6 +194,7 @@ Each `available*` computed calls `facetedOptions(excludeField, extractFn)` which
   - `--text-color`, `--text-color-secondary`
   - `--primary-color`, `--primary-contrast-color`
   - `--transition-duration`, `--content-border-radius`
+- **Tailwind `dark:` variant works with `.app-dark`** — configured via `@custom-variant dark` in `src/assets/tailwind.css`. Prefer `dark:bg-green-900` over CSS variable switching for component-level dark mode when practical.
 - **Tailwind** for layout and spacing (`grid`, `flex`, `gap-*`, `p-*`, breakpoints `lg:`, `xl:`). Use Tailwind arbitrary values (`rounded-[56px]`, `h-[3.2rem]`, `bg-[linear-gradient(...)]`) instead of `<style scoped>` for one-off values.
 - **SCSS `<style scoped>`** for component-specific overrides only when Tailwind arbitrary values are not practical
 - **`:deep(.p-*)`** to override PrimeVue internals — **only inside `<style scoped>`**. In a plain `<style>` block, `:deep()` is invalid — use plain class selectors there instead
@@ -293,7 +298,9 @@ API proxy (dev only): `/api/` → `http://56.228.5.130` (configured in `vite.con
 - **`isLoading` from `useTicketData()`** — use this for DataTable `:loading` prop; do not create a local `loading = ref(false)` that is never set.
 - **`processRecords` is async** — it yields between batches. Any code that depends on `fullProcessedTickets` must wait for `isLoading` to become false, not run immediately after `_lazyInit()`.
 - **Named constants over magic numbers** — e.g. `PAGE_SIZE_DEFAULT = 5`, `FILTER_DEBOUNCE_MS = 500`, `CSAT_HIGH_THRESHOLD = 80`, `CSV_ROW_WARN_THRESHOLD = 10_000`, `PROCESS_BATCH_SIZE = 150`.
+- **No virtual scrolling on DataTable** — pagination (5 rows default) is used instead. Do not add `virtualScrollerOptions`; it's unnecessary overhead with paginated data.
 - **Data is already normalized** by `processRecords` — no need for defensive `|| 'none'` / `|| 'No Data'` checks downstream in composables or CSV export.
 - **`topic` is a text-contains filter** (not multiselect) — its value is `string|null`, not `string[]`. It lives in `baseFilterParams` in `useFacetedFilterOptions`, not `activeMultiselects`.
 - **`!important` inside CSS `var()` is invalid** — silently ignored by browsers. Override PrimeVue tokens by redefining the CSS variable, not with `!important` inside the value.
+- **Chart topic limit** — `useChartAggregations.js` caps charts at `TOP_TOPICS_LIMIT = 100` topics (sorted by total desc). Chrome's max canvas width is 32,767px; at 48px/bar, exceeding ~682 bars silently breaks the canvas. 100 is a safe, readable default.
 - **Git remotes**: `origin` = old/clean repo (`rvoronevska-sbt/zd-extr-fe`), `new-origin` = active development repo. Always push to `new-origin`.

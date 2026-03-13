@@ -14,7 +14,6 @@ import { useTableStore } from '@/stores/tableStore';
 const PAGE_SIZE_DEFAULT = 5;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
 const FILTER_DEBOUNCE_MS = 500;
-const VIRTUAL_SCROLL_ITEM_SIZE = 60; // px — must match the rendered row height
 
 const tableStore = useTableStore();
 
@@ -40,14 +39,18 @@ onMounted(() => _lazyInit());
 // ────────────────────────────────────────────────
 const dataTable = ref(null);
 
+// Default "Today" date range
+const todayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const tomorrowStart = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d; };
+
 // Factory – called once for init, again on clearFilter to get a fresh object
 const createInitialFilters = () => ({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     timestamp: {
         operator: FilterOperator.AND,
         constraints: [
-            { value: null, matchMode: FilterMatchMode.DATE_AFTER },
-            { value: null, matchMode: FilterMatchMode.DATE_BEFORE }
+            { value: todayStart(), matchMode: FilterMatchMode.DATE_AFTER },
+            { value: tomorrowStart(), matchMode: FilterMatchMode.DATE_BEFORE }
         ]
     },
     ticketid: { value: null, matchMode: FilterMatchMode.EQUALS },
@@ -72,6 +75,9 @@ const lazyParams = ref({
     page: 1,
     limit: PAGE_SIZE_DEFAULT
 });
+
+// Quick date filter active state
+const activeQuickFilter = ref('today');
 
 // Dialog state for transcript viewing
 const dialog = reactive({ visible: false, type: '', transcript: '', date: null });
@@ -197,6 +203,17 @@ function onFilter() {
  * @param {string} period - Period key: 'today', 'week', or 'month'
  */
 const setQuickDateFilter = (period) => {
+    // Toggle off if clicking the already-active filter
+    if (activeQuickFilter.value === period) {
+        activeQuickFilter.value = null;
+        if (filters.value?.timestamp?.constraints) {
+            filters.value.timestamp.constraints[0].value = null;
+            filters.value.timestamp.constraints[1].value = null;
+        }
+        return;
+    }
+
+    activeQuickFilter.value = period;
     const start = new Date();
     const end = new Date();
     end.setDate(end.getDate() + 1);
@@ -205,6 +222,8 @@ const setQuickDateFilter = (period) => {
     if (period === 'today') start.setHours(0, 0, 0, 0);
     else if (period === 'week') (start.setDate(start.getDate() - 7), start.setHours(0, 0, 0, 0));
     else if (period === 'month') (start.setDate(start.getDate() - 30), start.setHours(0, 0, 0, 0));
+    else if (period === '2 months') (start.setDate(start.getDate() - 60), start.setHours(0, 0, 0, 0));
+    else if (period === '3 months') (start.setDate(start.getDate() - 90), start.setHours(0, 0, 0, 0));
 
     // Safely set date constraints
     if (filters.value?.timestamp?.constraints) {
@@ -233,6 +252,10 @@ const toDate = computed({
 
 function clearFilter() {
     filters.value = createInitialFilters();
+    // Reset date constraints to null (createInitialFilters defaults to "today")
+    filters.value.timestamp.constraints[0].value = null;
+    filters.value.timestamp.constraints[1].value = null;
+    activeQuickFilter.value = null;
     lazyParams.value.page = 1;
     lazyParams.value.limit = PAGE_SIZE_DEFAULT;
 }
@@ -267,7 +290,7 @@ function clearFilter() {
             v-model:filters="filters"
             filterDisplay="menu"
             :globalFilterFields="['ticketid', 'topic', 'brand', 'vip_level', 'customer_email', 'agent_email', 'csat_score', 'csat_reason', '_chatTagsString', 'chat_transcript', 'email_transcript', 'sentiment', 'summary']"
-            :virtualScrollerOptions="{ itemSize: VIRTUAL_SCROLL_ITEM_SIZE }"
+
             responsiveLayout="scroll"
             showGridlines
             @page="onPage"
@@ -280,9 +303,11 @@ function clearFilter() {
                     <div class="flex flex-wrap gap-3 items-center">
                         <!-- Quick date filters -->
                         <div class="flex gap-2">
-                            <Button label="Today" icon="pi pi-calendar" outlined size="small" @click="setQuickDateFilter('today')" aria-label="Filter by today" />
-                            <Button label="Last 7 Days" outlined size="small" @click="setQuickDateFilter('week')" aria-label="Filter by last 7 days" />
-                            <Button label="Last 30 Days" outlined size="small" @click="setQuickDateFilter('month')" aria-label="Filter by last 30 days" />
+                            <Button label="Today" icon="pi pi-calendar" :outlined="activeQuickFilter !== 'today'" size="small" @click="setQuickDateFilter('today')" aria-label="Filter by today" />
+                            <Button label="Last 7 Days" :outlined="activeQuickFilter !== 'week'" size="small" @click="setQuickDateFilter('week')" aria-label="Filter by last 7 days" />
+                            <Button label="Last 30 Days" :outlined="activeQuickFilter !== 'month'" size="small" @click="setQuickDateFilter('month')" aria-label="Filter by last 30 days" />
+                            <Button label="Last 2 Months" :outlined="activeQuickFilter !== '2 months'" size="small" @click="setQuickDateFilter('2 months')" aria-label="Filter by last 2 months" />
+                            <Button label="Last 3 Months" :outlined="activeQuickFilter !== '3 months'" size="small" @click="setQuickDateFilter('3 months')" aria-label="Filter by last 3 months" />
                         </div>
                     </div>
                     <Button type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportToCSV()" aria-label="Export filtered results to CSV" />

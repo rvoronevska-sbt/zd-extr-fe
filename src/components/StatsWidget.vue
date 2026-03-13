@@ -88,7 +88,7 @@ const stats = computed(() => {
         <div class="stats-widget-cards card mb-0">
             <div class="flex justify-between mb-4">
                 <div>
-                    <span class="stats-title block text-muted-color font-medium mb-4">{{ stat.title }}</span>
+                    <span class="capitalize block text-muted-color font-medium mb-4">{{ stat.title }}</span>
                     <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
                         {{ stat.summaryValue }}
                     </div>

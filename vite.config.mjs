@@ -29,6 +29,19 @@ export default defineConfig({
         Components({
             resolvers: [PrimeVueResolver()]
         }),
+        // Replace mock JSON with empty array in production — prevents 973 kB dead chunk in dist/
+        {
+            name: 'exclude-mock-data',
+            enforce: 'pre',
+            resolveId(source) {
+                if (source.includes('mock-ticket-summaries') && !this.meta.watchMode) {
+                    return '\0mock-empty';
+                }
+            },
+            load(id) {
+                if (id === '\0mock-empty') return 'export default []';
+            }
+        },
         {
             // Rewrite primeicons font URL references to /zd-extr-fe/fonts/primeicons/
             // so Vite doesn't bundle them into dist/assets/ (absolute URLs are not processed as assets).
@@ -57,12 +70,13 @@ export default defineConfig({
                 manualChunks(id) {
                     if (!id.includes('node_modules')) return;
 
-                    if (id.includes('vue') || id.includes('@vue') || id.includes('pinia') || id.includes('vue-router')) {
-                        return 'framework';
+                    // PrimeVue MUST be checked before 'vue' — 'primevue' contains 'vue'
+                    if (id.includes('primevue') || id.includes('primeicons') || id.includes('@primevue')) {
+                        return 'primevue';
                     }
 
-                    if (id.includes('primevue') || id.includes('primeicons')) {
-                        return 'primevue';
+                    if (id.includes('vue') || id.includes('@vue') || id.includes('pinia') || id.includes('vue-router')) {
+                        return 'framework';
                     }
 
                     if (id.includes('firebase')) {

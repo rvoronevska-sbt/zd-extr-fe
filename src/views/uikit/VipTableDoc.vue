@@ -127,24 +127,24 @@ const hasVipData = computed(() => filteredTickets.value.some((t) => t.vip_level 
 
 function getSegmentRowClass(segment) {
     const map = {
-        None: 'segment-none',
-        Normal: 'segment-normal',
-        Bronze: 'segment-bronze',
-        Silver: 'segment-silver',
-        Gold: 'segment-gold',
-        Platinum: 'segment-platinum',
-        Diamond: 'segment-diamond',
-        TOTAL: 'segment-total'
+        None: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100',
+        Normal: 'bg-green-100 text-green-900 dark:bg-green-900 dark:text-green-100',
+        Bronze: 'bg-orange-200 text-orange-900 dark:bg-orange-900 dark:text-orange-100',
+        Silver: 'bg-slate-200 text-slate-800 dark:bg-slate-600 dark:text-slate-100',
+        Gold: 'bg-yellow-200 text-yellow-900 dark:bg-yellow-900 dark:text-yellow-100',
+        Platinum: 'bg-violet-100 text-violet-900 dark:bg-purple-900 dark:text-violet-100',
+        Diamond: 'bg-cyan-100 text-cyan-900 dark:bg-cyan-900 dark:text-cyan-100',
+        TOTAL: 'bg-slate-200 text-slate-800 dark:bg-slate-600 dark:text-slate-100'
     };
     return map[segment] || '';
 }
 
 function getCsatClass(csat) {
-    if (!csat || csat === '—') return 'csat-none';
+    if (!csat || csat === '—') return '';
     const val = parseFloat(csat);
-    if (val >= CSAT_HIGH_THRESHOLD) return 'csat-high';
-    if (val >= CSAT_MID_THRESHOLD) return 'csat-mid';
-    return 'csat-low';
+    if (val >= CSAT_HIGH_THRESHOLD) return 'bg-green-100 text-green-800 font-semibold dark:bg-green-900 dark:text-green-300';
+    if (val >= CSAT_MID_THRESHOLD) return 'bg-yellow-100 text-yellow-800 font-semibold dark:bg-yellow-900 dark:text-yellow-200';
+    return 'bg-red-100 text-red-800 font-semibold dark:bg-red-900 dark:text-red-300';
 }
 </script>
 
@@ -176,7 +176,7 @@ function getCsatClass(csat) {
         >
             <Column header="Customer Segment" field="segment" :sortable="false" style="min-width: 180px; font-weight: bold; text-align: center; padding: 0">
                 <template #body="{ data }">
-                    <div :class="getSegmentRowClass(data.segment)" class="p-8 dark:text-[var(--surface-ground)]">{{ data.segment }}</div>
+                    <div :class="getSegmentRowClass(data.segment)" class="p-8">{{ data.segment }}</div>
                 </template>
             </Column>
 
@@ -184,11 +184,9 @@ function getCsatClass(csat) {
             <Column v-for="date in dates" :key="date.toISOString()" :header="formatDate(date)" style="min-width: 140px; text-align: center; vertical-align: text-bottom; padding: 0">
                 <template #body="{ data }">
                     <div class="grid grid-cols-1 gap-0 text-sm p-0">
-                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)" :class="data[`csat_${date.toISOString().split('T')[0]}`] !== '—' ? 'bg-yellow-100 dark:text-[var(--surface-ground)]' : ''">
-                            CSAT: {{ data[`csat_${date.toISOString().split('T')[0]}`] }}
-                        </div>
-                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">Good rates: {{ data[`good_${date.toISOString().split('T')[0]}`] }}</div>
-                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">Bad rates: {{ data[`bad_${date.toISOString().split('T')[0]}`] }}</div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)" :class="getCsatClass(data[`csat_${date.toISOString().split('T')[0]}`])">CSAT: {{ data[`csat_${date.toISOString().split('T')[0]}`] }}</div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">✓ Good rates: {{ data[`good_${date.toISOString().split('T')[0]}`] }}</div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">✗ Bad rates: {{ data[`bad_${date.toISOString().split('T')[0]}`] }}</div>
                         <div>Rated: {{ data[`rated_${date.toISOString().split('T')[0]}`] }}</div>
                     </div>
                 </template>
@@ -198,49 +196,25 @@ function getCsatClass(csat) {
 </template>
 
 <style lang="scss" scoped>
-.vip-table {
-    :deep(.p-datatable) {
-        .p-datatable-thead > tr > th {
-            background-color: var(--primary-50);
-            color: var(--primary-800);
-            font-weight: 600;
-            padding: 12px !important;
-            border-bottom-color: var(--text-color);
-            .p-datatable-column-header-content {
-                justify-content: center;
-            }
-        }
-
-        .p-datatable-tbody > tr:last-child {
-            font-weight: bold;
-            background: var(--surface-200);
-        }
-
-        .p-datatable-tbody > tr > td {
-            border-bottom-color: var(--text-color);
+/* ── DataTable overrides (can't be done via Tailwind — need :deep for PrimeVue internals) ── */
+.vip-table :deep(.p-datatable) {
+    .p-datatable-thead > tr > th {
+        background-color: var(--primary-50);
+        color: var(--primary-800);
+        font-weight: 600;
+        padding: 12px !important;
+        border-bottom-color: var(--text-color);
+        .p-datatable-column-header-content {
+            justify-content: center;
         }
     }
-}
 
-.segment-normal {
-    background-color: #e6ffe6;
-}
-.segment-bronze {
-    background-color: #fff3e0;
-}
-.segment-silver {
-    background-color: #e3f2fd;
-}
-.segment-gold {
-    background-color: #fffde7;
-}
-.segment-platinum {
-    background-color: #f3e5f5;
-}
-.segment-diamond {
-    background-color: #f5f5f5;
-}
-.segment-none {
-    background-color: #fafafa;
+    .p-datatable-tbody > tr:last-child {
+        font-weight: bold;
+    }
+
+    .p-datatable-tbody > tr > td {
+        border-bottom-color: var(--text-color);
+    }
 }
 </style>
