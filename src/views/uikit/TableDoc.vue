@@ -11,6 +11,18 @@ import { formatDate } from '@/utils/dateUtils';
 
 import { useTableStore } from '@/stores/tableStore';
 
+import { useAuthStore } from '@/stores/auth';
+
+const authStore = useAuthStore();
+
+const isAdmin = authStore.hasRole('admin');
+console.log('User is admin:', isAdmin);
+
+const maskEmail = (email) => {
+    if (!email || email === '-') return '-';
+    return '*'.repeat(email.length);
+};
+
 const PAGE_SIZE_DEFAULT = 5;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
 const FILTER_DEBOUNCE_MS = 500;
@@ -40,8 +52,17 @@ onMounted(() => _lazyInit());
 const dataTable = ref(null);
 
 // Default "Today" date range
-const todayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
-const tomorrowStart = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d; };
+const todayStart = () => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+};
+const tomorrowStart = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+};
 
 // Factory – called once for init, again on clearFilter to get a fresh object
 const createInitialFilters = () => ({
@@ -290,7 +311,6 @@ function clearFilter() {
             v-model:filters="filters"
             filterDisplay="menu"
             :globalFilterFields="['ticketid', 'topic', 'brand', 'vip_level', 'customer_email', 'agent_email', 'csat_score', 'csat_reason', '_chatTagsString', 'chat_transcript', 'email_transcript', 'sentiment', 'summary']"
-
             responsiveLayout="scroll"
             showGridlines
             @page="onPage"
@@ -379,7 +399,7 @@ function clearFilter() {
 
             <Column header="Customer Email" filterField="customer_email" :showFilterMatchModes="false" style="min-width: 18rem">
                 <template #body="{ data }">
-                    {{ data.customer_email || '-' }}
+                    {{ isAdmin ? data.customer_email || '-' : maskEmail(data.customer_email) }}
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
                     <MultiSelect v-model="filterModel.value" :options="availableCustomerEmails" placeholder="Any Customer Email" display="chip" :filter="true" showClear @change="filterCallback()" />

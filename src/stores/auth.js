@@ -1,3 +1,4 @@
+// useAuthStore.js
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
@@ -7,7 +8,8 @@ let cachedAuth = null;
 let unsubscribeAuth = null;
 
 export const useAuthStore = defineStore('auth', () => {
-    const user = ref(null); // { uid, email, displayName, role? }
+    const user = ref(null); // { uid, email, displayName }
+    const role = ref(null); // Single role string from Firestore (e.g. 'viewer', 'admin')
     const isLoading = ref(true);
     const error = ref(null);
 
@@ -30,6 +32,27 @@ export const useAuthStore = defineStore('auth', () => {
         cachedAuth = importedAuth || getAuth(); // fallback if not exported
 
         return cachedAuth;
+    }
+
+    // Fetch user data (role, displayName) from Firestore users/{uid} document
+    async function fetchUserData(uid) {
+        if (!uid) return { role: null, displayName: null };
+        try {
+            const { doc, getDoc } = await import('firebase/firestore');
+            const { db: importedDb } = await import('@/firebase');
+
+            const userDocRef = doc(importedDb, 'users', uid);
+            const userDoc = await getDoc(userDocRef);
+
+            if (userDoc.exists()) {
+                const data = userDoc.data();
+                return { role: data.role || null, displayName: data.displayName || null };
+            }
+            return { role: null, displayName: null };
+        } catch (err) {
+            console.error('Error fetching user data:', err);
+            return { role: null, displayName: null };
+        }
     }
 
     // ====================== LOGIN ======================
@@ -58,11 +81,16 @@ export const useAuthStore = defineStore('auth', () => {
 
         const credential = await signInWithEmailAndPassword(auth, email, password);
 
-        user.value = {
-            uid: credential.user.uid,
-            email: credential.user.email,
-            displayName: credential.user.displayName || email.split('@')[0]
-        };
+        const fbUser = credential.user;
+        if (fbUser) {
+            const userData = await fetchUserData(fbUser.uid);
+            user.value = {
+                uid: fbUser.uid,
+                email: fbUser.email,
+                displayName: userData.displayName || fbUser.displayName || email.split('@')[0]
+            };
+            role.value = userData.role;
+        }
     }
 
     // Placeholder – ready for Django JWT
@@ -72,6 +100,8 @@ export const useAuthStore = defineStore('auth', () => {
 
         // Django will return access token + set HttpOnly refresh cookie
         user.value = res.data.user || { email };
+        // If Django also provides roles, you'd set them here
+        // roles.value = res.data.roles || [];
     }
 
     // ====================== LOGOUT ======================
@@ -93,12 +123,14 @@ export const useAuthStore = defineStore('auth', () => {
         }
 
         user.value = null;
+        role.value = null;
         error.value = null;
     }
 
     // ====================== INITIALIZE ======================
     function initializeAuth() {
         isLoading.value = true;
+        role.value = null;
 
         if (isFirebase) {
             // Fully lazy listener setup
@@ -113,33 +145,44 @@ export const useAuthStore = defineStore('auth', () => {
                     }
 
                     // Set up listener and store unsubscribe function for cleanup
-                    unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
-                        user.value = fbUser
-                            ? {
-                                  uid: fbUser.uid,
-                                  email: fbUser.email,
-                                  displayName: fbUser.displayName
-                              }
-                            : null;
+                    unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+                        // Make listener async
+                        if (fbUser) {
+                            const userData = await fetchUserData(fbUser.uid);
+                            user.value = {
+                                uid: fbUser.uid,
+                                email: fbUser.email,
+                                displayName: userData.displayName || fbUser.displayName
+                            };
+                            role.value = userData.role;
+                        } else {
+                            user.value = null;
+                            role.value = null;
+                        }
                         isLoading.value = false;
                     });
                 })
                 .catch((err) => {
                     console.error('Auth initialization failed:', err);
                     isLoading.value = false;
+                    role.value = null;
                 });
         } else {
             isLoading.value = false; // Django will check /api/me/ later
         }
     }
 
+    const hasRole = computed(() => (roleToCheck) => role.value === roleToCheck);
+
     return {
         user,
+        role,
         isAuthenticated,
         isLoading,
         error,
         login,
         logout,
-        initializeAuth
+        initializeAuth,
+        hasRole
     };
 });

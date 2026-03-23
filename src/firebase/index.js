@@ -1,6 +1,6 @@
-// src/firebase/index.js
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -11,5 +11,19 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
+// Initialize the Firebase app
 const app = initializeApp(firebaseConfig);
+
+// Initialize Firebase Authentication
 export const auth = getAuth(app);
+
+// Initialize Cloud Firestore
+export const db = getFirestore(app); // <--- Add this line to get the Firestore instance
+
+// To use emulators locally, uncomment the block below (requires Java + `firebase emulators:start`):
+// if (location.hostname === 'localhost') {
+//     const { connectAuthEmulator } = await import('firebase/auth');
+//     const { connectFirestoreEmulator } = await import('firebase/firestore');
+//     connectAuthEmulator(auth, 'http://127.0.0.1:9099');
+//     connectFirestoreEmulator(db, '127.0.0.1', 8080);
+// }
