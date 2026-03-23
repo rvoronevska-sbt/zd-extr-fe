@@ -39,12 +39,18 @@ router.beforeEach(async (to) => {
 
     if (authStore.isLoading) {
         await new Promise((resolve) => {
+            if (!authStore.isLoading) return resolve();
             const unwatch = authStore.$subscribe(() => {
                 if (!authStore.isLoading) {
                     unwatch();
                     resolve();
                 }
             });
+            // Re-check after subscribe in case state changed between check and subscribe
+            if (!authStore.isLoading) {
+                unwatch();
+                resolve();
+            }
         });
     }
 

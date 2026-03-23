@@ -2,7 +2,7 @@ const CSV_BYTES_PER_ROW = 200; // rough estimate for file size warning
 const CSV_ROW_WARN_THRESHOLD = 10_000; // warn if export exceeds this many rows
 const CSV_SIZE_WARN_MB = 2; // warn if estimated size exceeds this (MB)
 
-export function useCSVExport(dataTable, filteredRows, processedCustomers, formatDate) {
+export function useCSVExport(dataTable, filteredRows, formatDate) {
     const escapeCSVField = (field) => {
         if (field == null) return '';
         const str = Array.isArray(field) ? field.join('; ') : String(field);
@@ -21,7 +21,7 @@ export function useCSVExport(dataTable, filteredRows, processedCustomers, format
             return;
         }
 
-        const dataToExport = filteredRows.value?.length > 0 ? filteredRows.value : processedCustomers.value || [];
+        const dataToExport = filteredRows.value || [];
 
         if (!dataToExport.length) {
             alert('No data to export');

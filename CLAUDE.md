@@ -8,8 +8,9 @@
 - Analytics dashboard with charts (topic distribution, sentiment breakdown)
 - VIP customer tracking table
 - CSV export with size warnings
-- Firebase email/password authentication
-- Dark/light mode toggle
+- Firebase email/password authentication with Firestore RBAC (role-based access control)
+- Role-based UI (e.g. email masking for non-admin users)
+- Dark/light mode toggle (persisted to localStorage)
 - Deployed to GitHub Pages at `/zd-extr-fe/`
 
 ---
@@ -24,7 +25,7 @@
 | UI | PrimeVue 4 (Aura theme), PrimeIcons 7 |
 | Styling | Tailwind CSS 4 + tailwindcss-primeui, SCSS |
 | Charts | Chart.js 3 (via PrimeVue `<Chart>`) |
-| Auth | Firebase 12 (primary), Django JWT (secondary) |
+| Auth | Firebase 12 Auth + Firestore RBAC (primary), Django JWT (secondary) |
 | HTTP | Axios + JWT refresh interceptor |
 | Build | Vite 6 (base: `/zd-extr-fe/`) |
 | Deploy | gh-pages (`npm run deploy`) |
@@ -45,7 +46,7 @@
 
 6. **Faceted filter options via `useFacetedFilterOptions`** — Each multiselect dropdown only shows values present in the currently filtered dataset. `baseFilterParams` holds non-multiselect filters (text, date, single-select); `activeMultiselects` holds array filters. Each `available*` computed excludes its own field and applies all others, so selecting brand X only shows topics that exist within brand X.
 
-7. **Firebase is primary auth** — `VITE_USE_FIREBASE=true` in `.env`. Django JWT auth (`authApi.js`) is implemented but secondary. Route guards await `initializeAuth()` before every navigation.
+7. **Firebase is primary auth with Firestore RBAC** — `VITE_USE_FIREBASE=true` in `.env`. Firebase Auth handles login; Firestore `users/{uid}` stores `role` and `displayName`. Auth store fetches user data from Firestore after login and on `onAuthStateChanged`. `hasRole()` is a plain function (not computed) for role checks. Django JWT auth (`authApi.js`) is implemented but secondary. Route guards await `initializeAuth()` before every navigation. See `FIREBASE+FIRESTORE.md` for full setup guide.
 
 8. **Mock data fallback** — Set `VITE_USE_MOCK_DATA=true` in `.env` (comment out the line to disable) to load `src/services/mock-ticket-summaries.json` instead of hitting the API.
 
@@ -63,7 +64,7 @@ src/
 ├── App.vue                            # Root: GlobalLoader + router-view
 ├── router/index.js                    # 4 lazy routes (/login, /, /error, /access-denied) + auth guards
 ├── stores/
-│   ├── auth.js                        # Firebase/Django auth state (isAuthenticated, user, loading)
+│   ├── auth.js                        # Firebase/Django auth state + Firestore RBAC (user, role, hasRole)
 │   └── tableStore.js                  # filteredTickets + memoized chart aggregations (topicStats etc.)
 ├── composables/
 │   ├── useTicketData.js               # Core: data fetch, IDB cache, batched normalization, lazy init
@@ -97,8 +98,8 @@ src/
 ├── layout/
 │   ├── AppTopbar.vue                  # Header: Logo, dark mode toggle, logout
 │   ├── AppFooter.vue
-│   └── composables/layout.js          # Dark mode state (useLayout composable)
-├── firebase/index.js                  # Firebase SDK lazy init
+│   └── composables/layout.js          # Dark mode state (useLayout composable, persisted to localStorage)
+├── firebase/index.js                  # Firebase SDK init: exports `auth` and `db` (Firestore) instances
 └── assets/layout/                     # SCSS: _topbar, _core, _typography, _preloading, _utils, variables/
 ```
 
@@ -180,6 +181,7 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 
 - **Dark mode**: add/remove `.app-dark` class on `document.documentElement`
   - Uses View Transition API: `document.startViewTransition(() => { ... })`
+  - **Persisted to `localStorage`** (`app-dark-mode` key) — restored on page load in `layout.js`
   - PrimeVue Aura preset handles color switching automatically
 - **CSS variable switching pattern** — define light defaults on `html`, override in `html.app-dark`. Single rule set per selector. Do NOT duplicate rules with a separate dark block.
   ```scss
@@ -257,15 +259,19 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 - Check that normalized data uses `'none'` (string) for empty fields, not `null`/`''`
 
 ### Auth issues
-- Auth state: `useAuthStore()` — inspect `isAuthenticated`, `loading`, `user` in Vue DevTools
+- Auth state: `useAuthStore()` — inspect `isAuthenticated`, `user`, `role`, `isLoading` in Vue DevTools
 - Route guard awaits `initializeAuth()` which resolves after Firebase `onAuthStateChanged` — if this hangs, check Firebase config in `.env`
+- Role not loading: verify Firestore `users/{uid}` document exists and the document ID matches the Firebase Auth UID exactly
+- `hasRole()` is a plain function (not computed) — wrap in `computed()` at the call site for reactivity: `const isAdmin = computed(() => authStore.hasRole('admin'))`
 - Django JWT: `authApi.js` interceptor auto-retries on 401. If looping, check `/api/auth/refresh/` endpoint
 - Firebase errors: verify all `VITE_FIREBASE_*` env vars match the Firebase console project settings
+- See `FIREBASE+FIRESTORE.md` for full setup guide (adding users, Firestore structure, security rules)
 
 ### Dark mode not toggling
 - Check that `useLayout().toggleDarkMode()` is called in `AppTopbar.vue`
 - The `.app-dark` class should appear on `<html>` — inspect with browser DevTools
 - PrimeVue theme switching depends on `darkModeSelector: '.app-dark'` in `main.js` PrimeVue config
+- Preference is persisted in `localStorage.getItem('app-dark-mode')` — clear it to reset
 
 ### Build / deployment issues
 - Base URL must be `/zd-extr-fe/` in `vite.config.mjs` — do not change for GitHub Pages
@@ -287,8 +293,9 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 | `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
 | `VITE_FIREBASE_APP_ID` | Firebase app ID |
+| `VITE_API_URL` | API proxy target for dev server (fallback: `http://56.228.5.130`) |
 
-API proxy (dev only): `/api/` → `http://56.228.5.130` (configured in `vite.config.mjs`)
+API proxy (dev only): `/api/` → `VITE_API_URL` or `http://56.228.5.130` (configured in `vite.config.mjs`)
 
 ---
 

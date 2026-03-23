@@ -144,9 +144,24 @@ export const useAuthStore = defineStore('auth', () => {
                         unsubscribeAuth();
                     }
 
+                    let isInitialCheck = true;
+
+                    // Re-validate auth when user returns to the tab
+                    // (catches cleared IndexedDB, expired tokens, etc.)
+                    document.addEventListener('visibilitychange', async () => {
+                        if (document.visibilityState === 'visible' && user.value) {
+                            try {
+                                await auth.currentUser?.reload();
+                            } catch {
+                                user.value = null;
+                                role.value = null;
+                                window.location.href = `${import.meta.env.BASE_URL}login`;
+                            }
+                        }
+                    });
+
                     // Set up listener and store unsubscribe function for cleanup
                     unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
-                        // Make listener async
                         if (fbUser) {
                             const userData = await fetchUserData(fbUser.uid);
                             user.value = {
@@ -156,10 +171,18 @@ export const useAuthStore = defineStore('auth', () => {
                             };
                             role.value = userData.role;
                         } else {
+                            const wasLoggedIn = !!user.value;
                             user.value = null;
                             role.value = null;
+
+                            // Redirect to login if session was lost (e.g. cache cleared)
+                            // but not on the initial auth check (page load)
+                            if (!isInitialCheck && wasLoggedIn) {
+                                window.location.href = `${import.meta.env.BASE_URL}login`;
+                            }
                         }
                         isLoading.value = false;
+                        isInitialCheck = false;
                     });
                 })
                 .catch((err) => {
@@ -172,7 +195,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    const hasRole = computed(() => (roleToCheck) => role.value === roleToCheck);
+    const hasRole = (roleToCheck) => role.value === roleToCheck;
 
     return {
         user,

@@ -97,7 +97,7 @@ export default defineConfig({
     server: {
         proxy: {
             '/api': {
-                target: 'http://56.228.5.130',
+                target: process.env.VITE_API_URL || 'http://56.228.5.130',
                 changeOrigin: true
             }
         }

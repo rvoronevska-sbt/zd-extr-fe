@@ -15,8 +15,7 @@ import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
 
-const isAdmin = authStore.hasRole('admin');
-console.log('User is admin:', isAdmin);
+const isAdmin = computed(() => authStore.hasRole('admin'));
 
 const maskEmail = (email) => {
     if (!email || email === '-') return '-';
@@ -193,7 +192,7 @@ watch(
 // ────────────────────────────────────────────────
 // Export & format
 // ────────────────────────────────────────────────
-const { exportToCSV } = useCSVExport(dataTable, filteredTickets, filteredTickets, formatDate);
+const { exportToCSV } = useCSVExport(dataTable, filteredTickets, formatDate);
 
 // ────────────────────────────────────────────────
 // Event handlers

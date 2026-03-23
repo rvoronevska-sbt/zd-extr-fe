@@ -34,7 +34,8 @@ const dates = computed(() => {
     const res = [];
     let cur = new Date(dateRange.value.start);
     while (cur <= dateRange.value.end) {
-        res.push(new Date(cur));
+        const d = new Date(cur);
+        res.push({ date: d, key: d.toISOString().split('T')[0] });
         cur.setDate(cur.getDate() + 1);
     }
     return res;
@@ -78,13 +79,12 @@ function buildRows(vipStats, dateValues) {
     return SEGMENT_ORDER.filter((vip) => vipStats[vip]).map((vip) => {
         const group = vipStats[vip];
         const row = { segment: group.segment };
-        dateValues.forEach((date) => {
-            const dateKey = date.toISOString().split('T')[0];
-            const s = group.perDate[dateKey];
-            row[`good_${dateKey}`] = s.good;
-            row[`bad_${dateKey}`] = s.bad;
-            row[`rated_${dateKey}`] = s.rated;
-            row[`csat_${dateKey}`] = s.csat;
+        dateValues.forEach(({ key }) => {
+            const s = group.perDate[key];
+            row[`good_${key}`] = s.good;
+            row[`bad_${key}`] = s.bad;
+            row[`rated_${key}`] = s.rated;
+            row[`csat_${key}`] = s.csat;
         });
         return row;
     });
@@ -92,28 +92,27 @@ function buildRows(vipStats, dateValues) {
 
 function buildTotalsRow(vipStats, dateValues) {
     const totalRow = { segment: 'TOTAL' };
-    dateValues.forEach((date) => {
-        const dateKey = date.toISOString().split('T')[0];
+    dateValues.forEach(({ key }) => {
         let good = 0,
             bad = 0,
             rated = 0;
         Object.values(vipStats).forEach((group) => {
-            const s = group.perDate[dateKey];
+            const s = group.perDate[key];
             good += s.good;
             bad += s.bad;
             rated += s.rated;
         });
-        totalRow[`good_${dateKey}`] = good;
-        totalRow[`bad_${dateKey}`] = bad;
-        totalRow[`rated_${dateKey}`] = rated;
-        totalRow[`csat_${dateKey}`] = rated > 0 ? ((good / rated) * 100).toFixed(2) + '%' : '—';
+        totalRow[`good_${key}`] = good;
+        totalRow[`bad_${key}`] = bad;
+        totalRow[`rated_${key}`] = rated;
+        totalRow[`csat_${key}`] = rated > 0 ? ((good / rated) * 100).toFixed(2) + '%' : '—';
     });
     return totalRow;
 }
 
 const groupedData = computed(() => {
     if (!filteredTickets.value.length) return [];
-    const dateKeys = dates.value.map((d) => d.toISOString().split('T')[0]);
+    const dateKeys = dates.value.map((d) => d.key);
     const vipStats = initVipStats(dateKeys);
     aggregateTickets(vipStats, filteredTickets.value);
     calcCsatPercentages(vipStats);
@@ -181,13 +180,13 @@ function getCsatClass(csat) {
             </Column>
 
             <!-- Dynamic columns – one set per date -->
-            <Column v-for="date in dates" :key="date.toISOString()" :header="formatDate(date)" style="min-width: 140px; text-align: center; vertical-align: text-bottom; padding: 0">
+            <Column v-for="{ date, key } in dates" :key="key" :header="formatDate(date)" style="min-width: 140px; text-align: center; vertical-align: text-bottom; padding: 0">
                 <template #body="{ data }">
                     <div class="grid grid-cols-1 gap-0 text-sm p-0">
-                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)" :class="getCsatClass(data[`csat_${date.toISOString().split('T')[0]}`])">CSAT: {{ data[`csat_${date.toISOString().split('T')[0]}`] }}</div>
-                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">✓ Good rates: {{ data[`good_${date.toISOString().split('T')[0]}`] }}</div>
-                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">✗ Bad rates: {{ data[`bad_${date.toISOString().split('T')[0]}`] }}</div>
-                        <div>Rated: {{ data[`rated_${date.toISOString().split('T')[0]}`] }}</div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)" :class="getCsatClass(data[`csat_${key}`])">CSAT: {{ data[`csat_${key}`] }}</div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">✓ Good rates: {{ data[`good_${key}`] }}</div>
+                        <div class="border-b border-solid border-(--p-datatable-body-cell-border-color)">✗ Bad rates: {{ data[`bad_${key}`] }}</div>
+                        <div>Rated: {{ data[`rated_${key}`] }}</div>
                     </div>
                 </template>
             </Column>

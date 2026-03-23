@@ -20,10 +20,20 @@ export const auth = getAuth(app);
 // Initialize Cloud Firestore
 export const db = getFirestore(app); // <--- Add this line to get the Firestore instance
 
-// To use emulators locally, uncomment the block below (requires Java + `firebase emulators:start`):
-// if (location.hostname === 'localhost') {
-//     const { connectAuthEmulator } = await import('firebase/auth');
-//     const { connectFirestoreEmulator } = await import('firebase/firestore');
-//     connectAuthEmulator(auth, 'http://127.0.0.1:9099');
-//     connectFirestoreEmulator(db, '127.0.0.1', 8080);
-// }
+// Redirect to login if Firestore returns 400 (session invalidated, e.g. cleared IndexedDB)
+// Firestore's channel listener uses XHR long-polling, not fetch
+const originalXHROpen = XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+    this.addEventListener('load', async function () {
+        if (this.status === 400 && typeof url === 'string' && url.includes('firestore.googleapis.com')) {
+            const { useAuthStore } = await import('@/stores/auth');
+            const authStore = useAuthStore();
+            if (authStore.isAuthenticated) {
+                authStore.user = null;
+                authStore.role = null;
+                window.location.href = `${import.meta.env.BASE_URL}login`;
+            }
+        }
+    });
+    return originalXHROpen.call(this, method, url, ...rest);
+};

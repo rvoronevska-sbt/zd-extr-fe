@@ -39,23 +39,15 @@ async function handleLogout() {
                     <i :class="['pi text-xl', isDarkTheme ? 'pi-moon' : 'pi-sun']"></i>
                 </button>
 
-                <div class="layout-topbar-actions relative z-50">
-                    <!-- added relative + z-50 -->
-                    <div class="layout-config-menu flex items-center gap-4">
-                        <!-- Dark mode button unchanged -->
-
-                        <Button
-                            id="logout-button"
-                            label="Log out"
-                            icon="pi pi-sign-out"
-                            class="p-button-danger p-button-rounded p-button-raised !pointer-events-auto"
-                            @click="handleLogout"
-                            severity="danger"
-                            :loading="authStore.isLoading"
-                            style="z-index: 100"
-                        />
-                    </div>
-                </div>
+                <Button
+                    id="logout-button"
+                    label="Log out"
+                    icon="pi pi-sign-out"
+                    class="p-button-danger p-button-rounded p-button-raised"
+                    @click="handleLogout"
+                    severity="danger"
+                    :loading="authStore.isLoading"
+                />
             </div>
         </div>
     </header>
