@@ -263,6 +263,10 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 - Route guard awaits `initializeAuth()` which resolves after Firebase `onAuthStateChanged` — if this hangs, check Firebase config in `.env`
 - Role not loading: verify Firestore `users/{uid}` document exists and the document ID matches the Firebase Auth UID exactly
 - `hasRole()` is a plain function (not computed) — wrap in `computed()` at the call site for reactivity: `const isAdmin = computed(() => authStore.hasRole('admin'))`
+- **Session invalidation redirect** — three layers detect lost sessions and hard-redirect to `/login`:
+  1. XHR interceptor in `firebase/index.js` — catches Firestore 400 responses (e.g. cleared IndexedDB)
+  2. `visibilitychange` listener in `auth.js` — re-validates auth when user returns to the tab
+  3. `onAuthStateChanged` callback in `auth.js` — catches SDK-detected session loss (e.g. account disabled)
 - Django JWT: `authApi.js` interceptor auto-retries on 401. If looping, check `/api/auth/refresh/` endpoint
 - Firebase errors: verify all `VITE_FIREBASE_*` env vars match the Firebase console project settings
 - See `FIREBASE+FIRESTORE.md` for full setup guide (adding users, Firestore structure, security rules)

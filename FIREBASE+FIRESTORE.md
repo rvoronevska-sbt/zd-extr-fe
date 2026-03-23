@@ -86,7 +86,7 @@ Route guards can check role via hasRole('admin')
 
 | File | Responsibility |
 |---|---|
-| `src/firebase/index.js` | Initializes Firebase app, exports `auth` and `db` instances |
+| `src/firebase/index.js` | Initializes Firebase app, exports `auth` and `db` instances, XHR interceptor redirects to `/login` on Firestore 400 |
 | `src/stores/auth.js` | Pinia store: login, logout, role/user state, `fetchUserData()` from Firestore |
 | `src/views/pages/auth/Login.vue` | Login form UI |
 | `src/router/index.js` | Route guards — checks `isAuthenticated` before navigation |
