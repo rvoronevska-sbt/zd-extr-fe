@@ -1,6 +1,6 @@
 <script setup>
 import { FilterMatchMode, FilterOperator, FilterService } from '@primevue/core/api';
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 import { useTicketData } from '@/composables/useTicketData';
 import { useFacetedFilterOptions } from '@/composables/useFacetedFilterOptions';
@@ -266,6 +266,13 @@ function clearFilter() {
     filters.value.timestamp.constraints[1].value = null;
     activeQuickFilter.value = null;
 }
+
+// Clear pending lazy-load timeout on unmount to prevent firing into a destroyed component
+onBeforeUnmount(() => {
+    if (loadLazyTimeout.value) {
+        clearTimeout(loadLazyTimeout.value);
+    }
+});
 </script>
 
 <template>
@@ -298,11 +305,11 @@ function clearFilter() {
                     <div class="flex flex-wrap gap-3 items-center">
                         <!-- Quick date filters -->
                         <div class="flex gap-2">
-                            <Button label="Today" icon="pi pi-calendar" :outlined="activeQuickFilter !== 'today'" size="small" @click="setQuickDateFilter('today')" aria-label="Filter by today" />
-                            <Button label="Last 7 Days" :outlined="activeQuickFilter !== 'week'" size="small" @click="setQuickDateFilter('week')" aria-label="Filter by last 7 days" />
-                            <Button label="Last 30 Days" :outlined="activeQuickFilter !== 'month'" size="small" @click="setQuickDateFilter('month')" aria-label="Filter by last 30 days" />
-                            <Button label="Last 2 Months" :outlined="activeQuickFilter !== '2 months'" size="small" @click="setQuickDateFilter('2 months')" aria-label="Filter by last 2 months" />
-                            <Button label="Last 3 Months" :outlined="activeQuickFilter !== '3 months'" size="small" @click="setQuickDateFilter('3 months')" aria-label="Filter by last 3 months" />
+                            <Button class="dt-period-filters" label="Today" icon="pi pi-calendar" :outlined="activeQuickFilter !== 'today'" size="small" @click="setQuickDateFilter('today')" aria-label="Filter by today" />
+                            <Button class="dt-period-filters" label="Last 7 Days" :outlined="activeQuickFilter !== 'week'" size="small" @click="setQuickDateFilter('week')" aria-label="Filter by last 7 days" />
+                            <Button class="dt-period-filters" label="Last 30 Days" :outlined="activeQuickFilter !== 'month'" size="small" @click="setQuickDateFilter('month')" aria-label="Filter by last 30 days" />
+                            <Button class="dt-period-filters" label="Last 2 Months" :outlined="activeQuickFilter !== '2 months'" size="small" @click="setQuickDateFilter('2 months')" aria-label="Filter by last 2 months" />
+                            <Button class="dt-period-filters" label="Last 3 Months" :outlined="activeQuickFilter !== '3 months'" size="small" @click="setQuickDateFilter('3 months')" aria-label="Filter by last 3 months" />
                         </div>
                     </div>
                     <Button type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportToCSV()" aria-label="Export filtered results to CSV" />

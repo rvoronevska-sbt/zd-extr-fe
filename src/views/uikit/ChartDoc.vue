@@ -1,7 +1,7 @@
 <script setup>
 import { useTopicCharts } from '@/composables/useChartAggregations';
 import { useLayout } from '@/layout/composables/layout';
-import { onBeforeMount, onMounted, ref, watch, computed } from 'vue';
+import { onMounted, ref, watch, computed } from 'vue';
 
 const { layoutConfig, isDarkTheme } = useLayout();
 
@@ -15,7 +15,6 @@ const chartWidth = computed(() => Math.max(900, topicCount.value * 48));
 
 const chartOptions = ref(null);
 
-onBeforeMount(() => setChartOptions());
 onMounted(() => setChartOptions());
 watch([() => layoutConfig.primary, isDarkTheme], setChartOptions);
 

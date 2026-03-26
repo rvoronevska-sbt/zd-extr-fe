@@ -9,7 +9,7 @@ export const debounce = (fn, delay) => {
     return (...args) => {
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
-            fn(...args);
+            Promise.resolve(fn(...args)).catch((err) => console.error('Debounced function error:', err));
             timer = null;
         }, delay);
     };

@@ -141,7 +141,7 @@ async function lazyInit() {
 
                 if (isCacheStale(cached)) {
                     // Cache is old — silently refresh in background
-                    refreshInBackground();
+                    refreshInBackground().catch((err) => console.warn('Background refresh failed:', err));
                 }
                 return;
             }

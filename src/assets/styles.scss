@@ -69,7 +69,7 @@ html {
 }
 
 /* ── Info strip ───────────────────────────────────────────────────────────── */
-.dt-info-p {
+.dt-info-p, .dt-period-filters {
     background: var(--p-button-outlined-primary-active-background) !important;
     color: var(--app-dt-info-color) !important;
 }
