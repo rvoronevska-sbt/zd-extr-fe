@@ -36,7 +36,7 @@
 
 1. **Client-side filtering only** — All ticket data is fetched once on load. Every filter change operates on the local dataset; no API calls are made per filter.
 
-2. **Module-level singleton in `useTicketData.js`** — The composable stores data at module scope (not component scope), shared across all component instances. `_lazyInit()` fires exactly once per session. IDB cache stores **processed** data (not raw), so cache hits skip `processRecords` entirely and assign directly to `fullProcessedTickets` (only `Date` objects need restoring since IDB serializes them to strings). Fresh API fetch only on a cold first visit or stale cache (>1 hour). `fullProcessedTickets` uses `shallowRef` to avoid deep-reactivity overhead on 30k+ row arrays.
+2. **Pinia `ticketDataStore` in `stores/ticketData.js`** — A setup-style Pinia store that manages ticket data fetching, IDB caching, and batched normalization. `lazyInit()` fires exactly once per session. IDB cache stores **processed** data (not raw), so cache hits skip `processRecords` entirely and assign directly to `fullProcessedTickets` (only `Date` objects need restoring since IDB serializes them to strings). Fresh API fetch only on a cold first visit or stale cache (>1 hour). `fullProcessedTickets` uses `shallowRef` to avoid deep-reactivity overhead on 30k+ row arrays.
 
 3. **Batched `processRecords` to prevent main-thread blocking** — 30k tickets are processed in batches of 150. Between batches, `scheduler.yield()` (Chrome 129+) or `setTimeout(0)` hands control back to the browser, keeping each task under the 50ms long-task threshold and reducing Lighthouse TBT to near-zero.
 
@@ -69,12 +69,14 @@ src/
 ├── router/index.js                    # 4 lazy routes (/login, /, /error, /access-denied) + auth guards
 ├── stores/
 │   ├── auth.js                        # Firebase/Django auth state + Firestore RBAC (user, role, hasRole)
-│   └── tableStore.js                  # filteredTickets + memoized chart aggregations (topicStats etc.)
+│   ├── tableStore.js                  # filteredTickets + memoized chart aggregations (topicStats etc.)
+│   └── ticketData.js                  # Core: data fetch, IDB cache, batched normalization, lazy init (Pinia store)
 ├── composables/
-│   ├── useTicketData.js               # Core: data fetch, IDB cache, batched normalization, lazy init
 │   ├── useFacetedFilterOptions.js     # Cascading multiselect options derived from active filters
 │   ├── useCSVExport.js                # CSV generation with >10k row / >2 MB warnings
-│   └── useChartAggregations.js        # Top-N topic chart data (sliced from tableStore, capped at 100 topics)
+│   ├── useChartAggregations.js        # Top-N topic chart data (sliced from tableStore, capped at 100 topics)
+│   ├── useVipAggregation.js           # VIP table date range + per-segment CSAT aggregation
+│   └── useStatsAggregation.js         # Single-pass stats widget ticket aggregation
 ├── services/
 │   ├── authApi.js                     # Axios instance with auto-refresh on 401
 │   ├── ticketCache.js                 # IndexedDB cache: get/set/isCacheStale (1-hour TTL)
@@ -160,9 +162,9 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 |---|---|---|
 | Variables / functions | camelCase | `filteredTickets`, `toggleDarkMode` |
 | Vue component files | PascalCase | `StatsWidget.vue`, `TableDoc.vue` |
-| Composables | `use` prefix | `useTicketData`, `useCSVExport` |
+| Composables | `use` prefix | `useCSVExport`, `useVipAggregation` |
 | API / data fields | snake_case | `ticket_id`, `csat_score`, `customer_email` |
-| Internal/private | `_` prefix | `_lazyInit()`, `_chatTagsString` |
+| Internal/private | `_` prefix | `_chatTagsString` |
 
 ### Patterns
 - **Composables** for all reusable reactive logic (not mixins, not global utils)
@@ -228,7 +230,7 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 
 ### Adding a new stats metric
 
-1. Add computed logic in `src/components/StatsWidget.vue` using `useTicketData()` or `tableStore`
+1. Add computed logic in `src/components/StatsWidget.vue` using `useTicketDataStore()` or `tableStore`
 2. Add a card in the Tailwind 12-column grid:
    ```html
    <div class="col-span-12 lg:col-span-6 xl:col-span-3">
@@ -248,10 +250,10 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 ## Debugging Guide
 
 ### Data not loading / stale data
-- `useTicketData._lazyInit()` fires once. If data seems stale, clear IDB (`clearTicketCache()` in `ticketCache.js`) or hard-refresh (Ctrl+Shift+R) in dev
+- `useTicketDataStore().lazyInit()` fires once. If data seems stale, clear IDB (`clearTicketCache()` in `ticketCache.js`) or hard-refresh (Ctrl+Shift+R) in dev
 - IDB cache TTL is 1 hour (`CACHE_MAX_AGE_MS` in `ticketCache.js`). Stale cache triggers a silent background refresh — UI still renders immediately from the old data
 - Switch to mock data: uncomment `VITE_USE_MOCK_DATA=true` in `.env`, restart dev server
-- Check browser Network tab for failed requests; `fetchError` ref in `useTicketData` stores error state
+- Check browser Network tab for failed requests; `fetchError` ref in `useTicketDataStore` stores error state
 - `processRecords` is now async (batched). `isLoading` stays `true` while batches run — do not check for data until `isLoading` is false
 
 ### Filters not working
@@ -309,8 +311,8 @@ API proxy (dev only): `/api/` → `VITE_API_URL` or `http://56.228.5.130` (confi
 ## Important Gotchas
 
 - **Do NOT add `/:pathMatch(.*)*` catch-all route** — it breaks GitHub Pages cold navigation. Vue Router cannot intercept direct URL loads on GH Pages; the 404.html trick is needed instead.
-- **`isLoading` from `useTicketData()`** — use this for DataTable `:loading` prop; do not create a local `loading = ref(false)` that is never set.
-- **`processRecords` is async** — it yields between batches. Any code that depends on `fullProcessedTickets` must wait for `isLoading` to become false, not run immediately after `_lazyInit()`.
+- **`isLoading` from `useTicketDataStore()`** — use this for DataTable `:loading` prop; do not create a local `loading = ref(false)` that is never set.
+- **`processRecords` is async** — it yields between batches. Any code that depends on `fullProcessedTickets` must wait for `isLoading` to become false, not run immediately after `lazyInit()`.
 - **Named constants over magic numbers** — e.g. `PAGE_SIZE_DEFAULT = 5`, `FILTER_DEBOUNCE_MS = 300`, `CSAT_HIGH_THRESHOLD = 80`, `CSV_ROW_WARN_THRESHOLD = 10_000`, `PROCESS_BATCH_SIZE = 150`.
 - **No virtual scrolling on DataTable** — lazy pagination (5 rows default, `PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100]`) is used instead. The DataTable uses `lazy=true` with `onPage`/`onFilter` events and a `paginatedTickets` computed that slices from `filteredTickets`. Do not add `virtualScrollerOptions`; it's unnecessary overhead with paginated data.
 - **Data is already normalized** by `processRecords` — no need for defensive `|| 'none'` / `|| 'No Data'` checks downstream in composables or CSV export.

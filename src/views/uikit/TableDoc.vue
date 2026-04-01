@@ -1,14 +1,14 @@
 <script setup>
 import { FilterMatchMode, FilterOperator, FilterService } from '@primevue/core/api';
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { storeToRefs } from 'pinia';
+import { computed, onMounted, ref, watch } from 'vue';
 
-import { useTicketData } from '@/composables/useTicketData';
+import { useTicketDataStore } from '@/stores/ticketData';
 import { useFacetedFilterOptions } from '@/composables/useFacetedFilterOptions';
 import { useCSVExport } from '@/composables/useCSVExport';
 import { cleanAndFormatString } from '@/utils/stringUtils';
 import { applyTicketFilters } from '@/utils/ticketFilters';
 import { formatDate } from '@/utils/dateUtils';
-import { debounce } from '@/utils/debounce';
 
 import { useTableStore } from '@/stores/tableStore';
 
@@ -25,7 +25,6 @@ const maskEmail = (email) => {
 
 const PAGE_SIZE_DEFAULT = 5;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
-const FILTER_DEBOUNCE_MS = 300;
 
 const tableStore = useTableStore();
 
@@ -42,9 +41,10 @@ FilterService.register('containsAny', (value, filter) => {
 // ────────────────────────────────────────────────
 // Composables & full data
 // ────────────────────────────────────────────────
-const { fullProcessedTickets, isLoading, _lazyInit } = useTicketData();
+const ticketDataStore = useTicketDataStore();
+const { fullProcessedTickets, isLoading } = storeToRefs(ticketDataStore);
 
-onMounted(() => _lazyInit());
+onMounted(() => ticketDataStore.lazyInit());
 
 // ────────────────────────────────────────────────
 // State
@@ -115,20 +115,22 @@ const lazyParams = ref({
 const activeQuickFilter = ref('today');
 
 // Dialog state for transcript viewing
-const dialog = reactive({ visible: false, type: '', transcript: '', date: null });
+const dialog = ref({ visible: false, type: '', transcript: '', date: null });
 
 const openDialog = (type, transcript, timestamp) => {
-    dialog.type = type;
-    dialog.transcript = cleanAndFormatString(transcript) || transcript;
-    dialog.date = timestamp;
-    dialog.visible = true;
+    dialog.value = {
+        visible: true,
+        type,
+        transcript: cleanAndFormatString(transcript) || transcript,
+        date: timestamp
+    };
 };
 
 // ────────────────────────────────────────────────
 // Filtered & paginated data (computed – full dataset filtering)
 // ────────────────────────────────────────────────
 const filteredTickets = computed(() =>
-    applyTicketFilters([...fullProcessedTickets.value], {
+    applyTicketFilters(fullProcessedTickets.value, {
         globalFilter: filters.value.global?.value || '',
         ticketid: filters.value.ticketid?.value,
         brand: filters.value.brand?.value ?? [],
@@ -168,24 +170,14 @@ const totalRecords = computed(() => filteredTickets.value.length);
 // Watchers
 // ────────────────────────────────────────────────
 
-// 1. Debounced page reset when filters change (increased to 500ms for better UX)
-const debouncedResetPage = debounce(() => {
-    lazyParams.value.page = 1;
-}, FILTER_DEBOUNCE_MS);
-
-// Deep watch on all filters – reset page on any change
-// Note: Deep watching is necessary here since filters contain nested objects
-watch(
-    () => filters.value,
-    () => debouncedResetPage(),
-    { deep: true }
-);
-
-// 2. Sync full filtered data to Pinia store (for VipTable & Charts)
+// Sync filtered data to Pinia store (for VipTable & Charts) and reset page
+// Replaces deep watch on filters — filteredTickets is a computed that already
+// reacts to all filter changes, so no deep traversal or debounce needed.
 watch(
     filteredTickets,
     (newFiltered) => {
         tableStore.setFilteredTickets(newFiltered);
+        lazyParams.value.page = 1;
     },
     { immediate: true }
 );
@@ -374,7 +366,7 @@ function clearFilter() {
                 <template #body="{ data }">
                     {{ formatDate(data.timestamp) }}
                 </template>
-                <template #filter="{ filterModel }">
+                <template #filter>
                     <div class="flex flex-col sm:flex-row gap-2 p-2">
                         <DatePicker v-model="fromDate" placeholder="From (≥)" dateFormat="mm/dd/yy" showIcon />
                         <DatePicker v-model="toDate" placeholder="To (<)" dateFormat="mm/dd/yy" showIcon />
@@ -386,7 +378,7 @@ function clearFilter() {
                 <template #body="{ data }">
                     {{ data.started_at ? formatDate(data.started_at, 'en-US', true) : '—' }}
                 </template>
-                <template #filter="{ filterModel }">
+                <template #filter>
                     <div class="flex flex-col sm:flex-row gap-2 p-2">
                         <DatePicker v-model="startedAtFrom" placeholder="From (≥)" dateFormat="mm/dd/yy" showIcon />
                         <DatePicker v-model="startedAtTo" placeholder="To (<)" dateFormat="mm/dd/yy" showIcon />
@@ -398,7 +390,7 @@ function clearFilter() {
                 <template #body="{ data }">
                     {{ data.updated_at ? formatDate(data.updated_at, 'en-US', true) : '—' }}
                 </template>
-                <template #filter="{ filterModel }">
+                <template #filter>
                     <div class="flex flex-col sm:flex-row gap-2 p-2">
                         <DatePicker v-model="updatedAtFrom" placeholder="From (≥)" dateFormat="mm/dd/yy" showIcon />
                         <DatePicker v-model="updatedAtTo" placeholder="To (<)" dateFormat="mm/dd/yy" showIcon />

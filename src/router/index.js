@@ -64,8 +64,8 @@ router.beforeEach(async (to) => {
 
     // Prefetch ticket data as soon as auth passes — overlaps with component loading
     if (to.meta.requiresAuth && authStore.isAuthenticated) {
-        import('@/composables/useTicketData').then(({ useTicketData }) => {
-            useTicketData()._lazyInit();
+        import('@/stores/ticketData').then(({ useTicketDataStore }) => {
+            useTicketDataStore().lazyInit();
         });
     }
 

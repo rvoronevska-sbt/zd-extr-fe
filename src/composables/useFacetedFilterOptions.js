@@ -11,7 +11,7 @@ import { applyTicketFilters } from '@/utils/ticketFilters';
  * previous 7× applyTicketFilters calls with one O(n) iteration.
  *
  * @param {Ref<Object>} filters  - The filters ref from TableDoc
- * @param {Ref<Array>}  tickets  - fullProcessedTickets from useTicketData
+ * @param {Ref<Array>}  tickets  - fullProcessedTickets from useTicketDataStore
  */
 export function useFacetedFilterOptions(filters, tickets) {
     // All non-multiselect filter params (date, text, single-select)

@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia';
+import { acceptHMRUpdate, defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import { NEGATIVE_SENTIMENTS } from '@/config/enums';
 
@@ -47,3 +47,7 @@ export const useTableStore = defineStore('table', () => {
         topicStats
     };
 });
+
+if (import.meta.hot) {
+    import.meta.hot.accept(acceptHMRUpdate(useTableStore, import.meta.hot));
+}

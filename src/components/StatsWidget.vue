@@ -1,87 +1,32 @@
 <script setup>
-import { useTableStore } from '@/stores/tableStore';
 import { computed } from 'vue';
-import { VIP_TIERS } from '@/config/enums';
+import { useStatsAggregation } from '@/composables/useStatsAggregation';
 
-const tableStore = useTableStore();
-
-// Precompile regex patterns — avoids recompilation per ticket
-const COMPLIANCE_OK_RE = /compliance[:\s]+ok/i;
-const COMPLIANCE_ISSUE_RE = /compliance[:\s]+issue/i;
-const COMPLIANCE_WORD_RE = /compliance/i;
+const { aggregation } = useStatsAggregation();
 
 const stats = computed(() => {
-    let csatGood = 0,
-        csatBad = 0;
-    let negSentiment = 0,
-        veryNegSentiment = 0;
-    let unratedTickets = 0;
-    let vipPlatinum = 0,
-        vipGold = 0,
-        vipOther = 0;
-    let complianceOk = 0,
-        complianceIssue = 0,
-        complianceMissing = 0;
-    const brandSet = new Set();
-    const vipLevels = new Set(VIP_TIERS);
-
-    for (const t of tableStore.filteredTickets) {
-        const csat = t.csat_score?.toLowerCase();
-        const sentiment = t.sentiment?.toLowerCase();
-        const vip = t.vip_level?.toLowerCase();
-        const summary = t.summary || '';
-
-        if (csat === 'good') csatGood++;
-        else if (csat === 'bad') csatBad++;
-        else if (csat === 'unoffered') unratedTickets++;
-
-        if (sentiment === 'negative') negSentiment++;
-        else if (sentiment === 'very negative') veryNegSentiment++;
-
-        if (t.brand && t.brand !== 'none') brandSet.add(t.brand);
-
-        if (vipLevels.has(vip)) {
-            if (vip === 'platinum' || vip === 'diamond') vipPlatinum++;
-            else if (vip === 'gold') vipGold++;
-            else vipOther++;
-        }
-
-        if (COMPLIANCE_OK_RE.test(summary)) complianceOk++;
-        else if (COMPLIANCE_ISSUE_RE.test(summary)) complianceIssue++;
-        if (!COMPLIANCE_WORD_RE.test(summary)) complianceMissing++;
-    }
-
-    const totalTickets = tableStore.filteredTickets.length;
-    const ratedTickets = csatGood + csatBad;
-    const pctCsat = ratedTickets > 0 ? ((csatGood / ratedTickets) * 100).toFixed(1) : '0';
-    const pctSentiment = totalTickets > 0 ? (((negSentiment + veryNegSentiment) / totalTickets) * 100).toFixed(1) : '0';
-    const pctUnratedTickets = totalTickets > 0 ? ((unratedTickets / totalTickets) * 100).toFixed(1) : '0';
-    const pctComplianceOk = totalTickets > 0 ? ((complianceOk / totalTickets) * 100).toFixed(1) : '0';
-    const vipTotal = vipPlatinum + vipGold + vipOther;
-    const vipPrimaryDetails = `${vipPlatinum} platinum/diamond`;
-    const vipSecondaryDetails = `· ${vipGold} gold`;
-
+    const a = aggregation.value;
     return [
-        { title: 'Total Tickets', icon: 'pi pi-ticket', color: 'primary', summaryValue: totalTickets, primaryDetails: totalTickets, secondaryDetails: 'tickets in total' },
-        { title: 'CSAT Score', icon: 'pi pi-star', color: 'yellow-500', summaryValue: pctCsat + '%', primaryDetails: `${csatGood} good`, secondaryDetails: `· ${csatBad} bad rated` },
+        { title: 'Total Tickets', icon: 'pi pi-ticket', color: 'primary', summaryValue: a.totalTickets, primaryDetails: a.totalTickets, secondaryDetails: 'tickets in total' },
+        { title: 'CSAT Score', icon: 'pi pi-star', color: 'yellow-500', summaryValue: a.pctCsat + '%', primaryDetails: `${a.csatGood} good`, secondaryDetails: `· ${a.csatBad} bad rated` },
         {
             title: 'Negative Sentiment',
             icon: 'pi pi-face-smile',
             color: 'red-500',
-            summaryValue: pctSentiment + '%',
-            primaryDetails: `${veryNegSentiment} very negative`,
-            secondaryDetails: `· ${negSentiment} negative`
+            summaryValue: a.pctSentiment + '%',
+            primaryDetails: `${a.veryNegSentiment} very negative`,
+            secondaryDetails: `· ${a.negSentiment} negative`
         },
-        { title: 'Unrated Tickets', icon: 'pi pi-minus-circle', color: 'gray-500', summaryValue: unratedTickets, primaryDetails: unratedTickets, secondaryDetails: `${pctUnratedTickets}% of all tickets unoffered` },
-        { title: 'Active Brands', icon: 'pi pi-building', color: 'blue-500', summaryValue: brandSet.size, primaryDetails: brandSet.size, secondaryDetails: 'brands across all tickets' },
-        { title: 'VIP Tickets', icon: 'pi pi-crown', color: 'purple-500', summaryValue: vipTotal, primaryDetails: vipPrimaryDetails, secondaryDetails: vipSecondaryDetails },
-        { title: 'Compliance OK', icon: 'pi pi-check-circle', color: 'green-500', summaryValue: complianceOk, primaryDetails: `${pctComplianceOk}%`, secondaryDetails: 'of all tickets compliant' },
+        { title: 'Unrated Tickets', icon: 'pi pi-minus-circle', color: 'gray-500', summaryValue: a.unratedTickets, primaryDetails: a.unratedTickets, secondaryDetails: `${a.pctUnratedTickets}% of all tickets unoffered` },
+        { title: 'Active Brands', icon: 'pi pi-building', color: 'blue-500', summaryValue: a.brandCount, primaryDetails: a.brandCount, secondaryDetails: 'brands across all tickets' },
+        { title: 'VIP Tickets', icon: 'pi pi-crown', color: 'purple-500', summaryValue: a.vipTotal, primaryDetails: `${a.vipPlatinum} platinum/diamond`, secondaryDetails: `· ${a.vipGold} gold` },
+        { title: 'Compliance OK', icon: 'pi pi-check-circle', color: 'green-500', summaryValue: a.complianceOk, primaryDetails: `${a.pctComplianceOk}%`, secondaryDetails: 'of all tickets compliant' },
         {
             title: 'Compliance Issues',
             icon: 'pi pi-exclamation-triangle',
             color: 'orange-500',
-            summaryValue: complianceIssue,
-            primaryDetails: `${complianceMissing} missing`,
+            summaryValue: a.complianceIssue,
+            primaryDetails: `${a.complianceMissing} missing`,
             secondaryDetails: 'no compliance data'
         }
     ];

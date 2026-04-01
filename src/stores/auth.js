@@ -1,5 +1,4 @@
-// useAuthStore.js
-import { defineStore } from 'pinia';
+import { acceptHMRUpdate, defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
 // Cache for the auth instance (closure variable – lives as long as the store)
@@ -230,3 +229,7 @@ export const useAuthStore = defineStore('auth', () => {
         hasRole
     };
 });
+
+if (import.meta.hot) {
+    import.meta.hot.accept(acceptHMRUpdate(useAuthStore, import.meta.hot));
+}
