@@ -55,14 +55,7 @@ async function doExport() {
 </script>
 
 <template>
-    <Dialog
-        v-model:visible="visible"
-        header="Export to CSV"
-        :style="{ width: '36rem' }"
-        modal
-        :closable="!isExporting"
-        aria-label="Export filters dialog"
-    >
+    <Dialog v-model:visible="visible" header="Export to CSV" :style="{ width: '36rem' }" modal :closable="!isExporting" aria-label="Export filters dialog">
         <div class="flex flex-col gap-4">
             <!-- Date range -->
             <div>
@@ -76,19 +69,19 @@ async function doExport() {
             <!-- Brand -->
             <div>
                 <label class="block font-medium mb-2">Brand</label>
-                <MultiSelect v-model="exportBrand" :options="sortedOptions('brand')" placeholder="All Brands" display="chip" :filter="true" showClear class="w-full" />
+                <MultiSelect v-model="exportBrand" :options="sortedOptions('brand')" placeholder="Any Brand" display="chip" :filter="true" showClear class="w-full" />
             </div>
 
             <!-- Topic -->
             <div>
                 <label class="block font-medium mb-2">Topic</label>
-                <MultiSelect v-model="exportTopic" :options="sortedOptions('topic')" placeholder="All Topics" display="chip" :filter="true" showClear class="w-full" />
+                <MultiSelect v-model="exportTopic" :options="sortedOptions('topic')" placeholder="Any Topic" display="chip" :filter="true" showClear class="w-full" />
             </div>
 
             <!-- VIP Level -->
             <div>
                 <label class="block font-medium mb-2">VIP Level</label>
-                <MultiSelect v-model="exportVipLevel" :options="sortedOptions('vip_level')" placeholder="All VIP Levels" display="chip" :filter="true" showClear class="w-full" />
+                <MultiSelect v-model="exportVipLevel" :options="sortedOptions('vip_level')" placeholder="Any VIP Level" display="chip" :filter="true" showClear class="w-full" />
             </div>
 
             <!-- CSAT Score -->

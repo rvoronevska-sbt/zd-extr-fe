@@ -116,6 +116,7 @@ export default defineConfig({
 
     server: {
         proxy: {
+            // Dev-only proxy — set VITE_API_URL in .env to override the default backend
             '/api': {
                 target: process.env.VITE_API_URL || 'http://56.228.5.130',
                 changeOrigin: true

@@ -7,6 +7,8 @@ let cachedAuth = null;
 let unsubscribeAuth = null;
 let visibilityHandler = null;
 
+const DJANGO_TOKEN_ENDPOINT = '/api/token/';
+
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null); // { uid, email, displayName }
     const role = ref(null); // Single role string from Firestore (e.g. 'viewer', 'admin')
@@ -23,14 +25,12 @@ export const useAuthStore = defineStore('auth', () => {
     async function getFirebaseAuth() {
         if (cachedAuth) return cachedAuth;
 
-        // Import modules only when needed
-        const { getAuth } = await import('firebase/auth');
         const { auth: importedAuth } = await import('@/firebase');
 
-        // Use the already initialized auth from your firebase.js
-        // (assuming firebase.js exports 'auth' after initializeApp)
-        cachedAuth = importedAuth || getAuth(); // fallback if not exported
-
+        if (!importedAuth) {
+            throw new Error('Firebase auth instance not exported from @/firebase — check firebase/index.js exports');
+        }
+        cachedAuth = importedAuth;
         return cachedAuth;
     }
 
@@ -50,7 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
             }
             return { role: null, displayName: null };
         } catch (err) {
-            console.error('Error fetching user data:', err);
+            console.error(`Error fetching user data for uid=${uid}:`, err?.message || err);
             return { role: null, displayName: null };
         }
     }
@@ -96,7 +96,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Placeholder – ready for Django JWT
     async function loginDjango(email, password) {
         const api = (await import('@/services/authApi')).default;
-        const res = await api.post('/api/token/', { email, password });
+        const res = await api.post(DJANGO_TOKEN_ENDPOINT, { email, password });
 
         // Django will return access token + set HttpOnly refresh cookie
         user.value = res.data.user || { email };

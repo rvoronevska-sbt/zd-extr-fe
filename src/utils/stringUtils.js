@@ -22,13 +22,16 @@ const ISO_TZ_SPACE = /(\d{2})\s*([+-]\d{2}:\d{2})/g;
 const DATE_RE = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?[+-]\d{2}:\d{2})/g;
 
 // Separator and cleanup
-const SEPARATOR_RE = /\s*(?:\|+|[-–—]+|and|,\s*)\s*/gi;
+const SEPARATOR_RE = /\s*(?:\|+|[-–—]+|\band\b|,\s*)\s*/gi;
 const MULTI_NEWLINES_RE = /\n{4,}/g;
 
-/** Mask an email address by replacing all characters with asterisks. */
+/** Mask an email address with a fixed-width placeholder to avoid revealing length. */
 export function maskEmail(email) {
     if (!email || email === 'none') return 'none';
-    return '*'.repeat(email.length);
+    const atIdx = email.indexOf('@');
+    if (atIdx === -1) return '****@****';
+    const domain = email.slice(atIdx);
+    return `****${domain}`;
 }
 
 export function cleanAndFormatString(input) {

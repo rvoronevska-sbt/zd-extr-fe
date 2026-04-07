@@ -48,11 +48,6 @@ function mockedProcessTicket(ticket) {
  */
 function normalizeApiRecord(ticket) {
     const normalized = Object.fromEntries(NORMALIZE_FIELDS.map((field) => [field, emptyToNone(ticket[field])]));
-    // TODO (future): Remove topic prefix extraction when backend returns clean topic names
-    if (normalized.topic && normalized.topic !== 'none') {
-        const idx = normalized.topic.indexOf('|');
-        if (idx !== -1) normalized.topic = normalized.topic.substring(0, idx).trim();
-    }
     return {
         ...ticket,
         ...normalized,
@@ -175,10 +170,10 @@ export const useTicketDataStore = defineStore('ticketData', () => {
         fetchError.value = null;
         try {
             const { fetchTicketList } = await import('@/services/ticketApi');
-            const data = await fetchTicketList(params);
-            const raw = Array.isArray(data) ? data : (data.results || []);
+            const data = await fetchTicketList(params) ?? {};
+            const raw = Array.isArray(data) ? data : data.results || [];
             tickets.value = raw.map(normalizeApiRecord);
-            totalCount.value = Array.isArray(data) ? raw.length : (data.count || 0);
+            totalCount.value = Array.isArray(data) ? raw.length : data.count || 0;
         } catch (err) {
             fetchError.value = err;
             console.error('useTicketDataStore: fetchTickets failed', err);
@@ -202,10 +197,10 @@ export const useTicketDataStore = defineStore('ticketData', () => {
             today.setHours(0, 0, 0, 0);
 
             const params = buildTicketListParams({ startDate: today, endDate: new Date() }, { page: 1, rows: 5, sortField: 'timestamp', sortOrder: -1 });
-            const data = await fetchTicketList(params);
-            const raw = Array.isArray(data) ? data : (data.results || []);
+            const data = await fetchTicketList(params) ?? {};
+            const raw = Array.isArray(data) ? data : data.results || [];
             tickets.value = raw.map(normalizeApiRecord);
-            totalCount.value = Array.isArray(data) ? raw.length : (data.count || 0);
+            totalCount.value = Array.isArray(data) ? raw.length : data.count || 0;
             isInitialized = true;
         } catch (err) {
             fetchError.value = err;

@@ -77,8 +77,8 @@ export function buildTicketListParams(filters = {}, lazyParams = {}) {
     addAllAttributeFilters(params, filters);
 
     // Pagination
-    if (lazyParams.page) params.page = lazyParams.page;
-    if (lazyParams.rows) params.page_size = lazyParams.rows;
+    if (lazyParams.page > 0) params.page = lazyParams.page;
+    if (lazyParams.rows > 0) params.page_size = lazyParams.rows;
 
     // Sorting — prefix with "-" for descending
     if (lazyParams.sortField) {
@@ -278,8 +278,9 @@ export async function exportTicketsCsv(params) {
     });
 
     const contentDisposition = response.headers['content-disposition'];
-    const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/);
-    const filename = filenameMatch?.[1] || `tickets-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filenameStarMatch = contentDisposition?.match(/filename\*=(?:UTF-8''|utf-8'')([^;\s]+)/i);
+    const filenameMatch = contentDisposition?.match(/filename="?([^";\s]+)"?/);
+    const filename = (filenameStarMatch?.[1] && decodeURIComponent(filenameStarMatch[1])) || filenameMatch?.[1] || `tickets-${new Date().toISOString().slice(0, 10)}.csv`;
 
     const url = URL.createObjectURL(response.data);
     const link = document.createElement('a');

@@ -6,6 +6,6 @@ const { toggleDarkMode, isDarkTheme } = useLayout();
 
 <template>
     <div class="fixed flex gap-4 top-8 right-8">
-        <Button id="modal-mode-toggle-button" aria-label="modal-mode-toggle" type="button" @click="toggleDarkMode" rounded :icon="isDarkTheme ? 'pi pi-moon' : 'pi pi-sun'" severity="secondary" />
+        <Button id="modal-mode-toggle-button" aria-label="Toggle dark and light mode" type="button" @click="toggleDarkMode" rounded :icon="isDarkTheme ? 'pi pi-moon' : 'pi pi-sun'" severity="secondary" />
     </div>
 </template>

@@ -2,6 +2,12 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+const REQUIRED_ENV_VARS = ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN', 'VITE_FIREBASE_PROJECT_ID'];
+const missing = REQUIRED_ENV_VARS.filter((key) => !import.meta.env[key]);
+if (missing.length) {
+    console.error(`[Firebase] Missing required env vars: ${missing.join(', ')} — check your .env file`);
+}
+
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,

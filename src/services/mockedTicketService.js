@@ -32,10 +32,12 @@ async function mockedPaginatedResponse(allData, params) {
     });
 
     const total = filteredData.length;
-    const start = (params.page - 1) * params.limit;
-    const paginated = filteredData.slice(start, start + params.limit);
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.max(1, params.limit || 5);
+    const start = (page - 1) * limit;
+    const paginated = filteredData.slice(start, start + limit);
 
     await new Promise((resolve) => setTimeout(resolve, 400 + Math.random() * 600));
 
-    return { data: paginated, total, page: params.page, limit: params.limit };
+    return { data: paginated, total, page, limit };
 }

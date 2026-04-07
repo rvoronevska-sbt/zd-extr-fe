@@ -39,13 +39,25 @@ const transcriptColumns = [
 const { dialog, openDialog } = useTranscriptDialog();
 
 const {
-    isLoading, isAdmin, maskEmail,
-    tableData, totalRecords,
-    availableTopics, availableBrands, availableVipLevels,
-    availableCustomerEmails, availableAgentEmails, availableChatTags,
-    availableSentiments, availableCsatScores,
-    exportToCSV, onPage, onSort, onFilter,
-    setQuickDateFilter, clearFilter
+    isLoading,
+    isAdmin,
+    maskEmail,
+    tableData,
+    totalRecords,
+    availableTopics,
+    availableBrands,
+    availableVipLevels,
+    availableCustomerEmails,
+    availableAgentEmails,
+    availableChatTags,
+    availableSentiments,
+    availableCsatScores,
+    exportToCSV,
+    onPage,
+    onSort,
+    onFilter,
+    setQuickDateFilter,
+    clearFilter
 } = useTicketTableData(filterState, dataTable);
 
 const emailColumns = [
@@ -199,7 +211,7 @@ const emailColumns = [
                     <Tag :value="data.csat_score" severity="contrast" />
                 </template>
                 <template #filter="{ filterModel }">
-                    <Select v-model="filterModel.value" :options="availableCsatScores" placeholder="Filter by CSAT Score" showClear>
+                    <Select v-model="filterModel.value" :options="availableCsatScores" placeholder="Any CSAT Score" showClear>
                         <template #option="slotProps">
                             <Tag :value="slotProps.option" />
                         </template>
@@ -214,7 +226,7 @@ const emailColumns = [
                     </div>
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
-                    <MultiSelect v-model="filterModel.value" :options="availableChatTags" placeholder="Filter by Chat Tags" display="chip" :filter="true" showClear @change="filterCallback()">
+                    <MultiSelect v-model="filterModel.value" :options="availableChatTags" placeholder="Any Chat Tag" display="chip" :filter="true" showClear @change="filterCallback()">
                         <template #option="slotProps">
                             <Tag :value="slotProps.option" />
                         </template>
@@ -225,16 +237,34 @@ const emailColumns = [
             <Column v-for="col in transcriptColumns" :key="col.field" :header="col.header" :field="col.field" :filterField="col.field" :style="{ minWidth: col.minWidth }">
                 <template #body="{ data }">
                     <template v-if="USE_MOCKED">
-                        <Button v-if="data[col.field]" label="View" icon="pi pi-external-link" @click="openDialog(col.dialogType, data[col.field], data.timestamp)" size="small" severity="info" rounded :aria-label="`View ${col.header.toLowerCase()}`" />
+                        <Button
+                            v-if="data[col.field]"
+                            label="View"
+                            icon="pi pi-external-link"
+                            @click="openDialog(col.dialogType, data[col.field], data.timestamp)"
+                            size="small"
+                            severity="info"
+                            rounded
+                            :aria-label="`View ${col.header.toLowerCase()}`"
+                        />
                         <span v-else>—</span>
                     </template>
                     <template v-else>
-                        <Button v-if="data[col.hasField]" label="View" icon="pi pi-external-link" @click="openDialog(col.dialogType, data.ticketid, data.timestamp)" size="small" severity="info" rounded :aria-label="`View ${col.header.toLowerCase()}`" />
+                        <Button
+                            v-if="data[col.hasField]"
+                            label="View"
+                            icon="pi pi-external-link"
+                            @click="openDialog(col.dialogType, data.ticketid, data.timestamp)"
+                            size="small"
+                            severity="info"
+                            rounded
+                            :aria-label="`View ${col.header.toLowerCase()}`"
+                        />
                         <span v-else>—</span>
                     </template>
                 </template>
                 <template #filter="{ filterModel }">
-                    <InputText v-model="filterModel.value" type="text" :placeholder="`Filter by ${col.header}`" />
+                    <InputText v-model="filterModel.value" type="text" :placeholder="`Any ${col.header}`" />
                 </template>
             </Column>
 
@@ -243,7 +273,7 @@ const emailColumns = [
                     <Tag :value="data.sentiment" severity="help" />
                 </template>
                 <template #filter="{ filterModel }">
-                    <Select v-model="filterModel.value" :options="availableSentiments" placeholder="Filter by Sentiment" showClear>
+                    <Select v-model="filterModel.value" :options="availableSentiments" placeholder="Any Sentiment" showClear>
                         <template #option="slotProps">
                             <Tag :value="slotProps.option" />
                         </template>
@@ -256,7 +286,7 @@ const emailColumns = [
                     {{ data.sentiment_reason || '—' }}
                 </template>
                 <template #filter="{ filterModel }">
-                    <InputText v-model="filterModel.value" type="text" placeholder="Filter by Sentiment Reason" />
+                    <InputText v-model="filterModel.value" type="text" placeholder="Any Sentiment Reason" />
                 </template>
             </Column>
 
@@ -265,7 +295,7 @@ const emailColumns = [
                     {{ data.summary || '—' }}
                 </template>
                 <template #filter="{ filterModel }">
-                    <InputText v-model="filterModel.value" type="text" placeholder="Filter by Summary" />
+                    <InputText v-model="filterModel.value" type="text" placeholder="Any Summary" />
                 </template>
             </Column>
         </DataTable>

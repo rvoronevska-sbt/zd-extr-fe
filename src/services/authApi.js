@@ -6,6 +6,8 @@ const api = axios.create({
     // timeout: 10000
 });
 
+const REFRESH_ENDPOINT = '/api/token/refresh/';
+
 let refreshPromise = null;
 
 let _authStore = null;
@@ -27,7 +29,7 @@ api.interceptors.response.use(
             originalRequest._retry = true;
             try {
                 if (!refreshPromise) {
-                    refreshPromise = api.post('/api/token/refresh/', {}, { withCredentials: true }).finally(() => {
+                    refreshPromise = api.post(REFRESH_ENDPOINT, {}, { withCredentials: true }).finally(() => {
                         refreshPromise = null;
                     });
                 }

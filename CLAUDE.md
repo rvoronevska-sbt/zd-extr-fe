@@ -54,7 +54,7 @@
 
 10. **PrimeIcons hosted locally** — Font files committed to `public/fonts/primeicons/`, frozen from npm updates. Vite plugin `primeicons-local-fonts` rewrites CSS `url()` references and strips font files from `dist/assets/` at build time. A `@font-face` rule in `styles.scss` sets `font-display: swap` to prevent FOIT (flash of invisible text).
 
-11. **Static HTML shell + dark-mode restore in `index.html`** — A lightweight header + "Loading..." message renders instantly from raw HTML before any JS loads. An inline `<script>` in `<head>` reads `localStorage('app-dark-mode')` and adds `.app-dark` to `<html>` before first paint, preventing a white flash for dark-mode users. The shell uses CSS variable fallbacks (`var(--surface-card, #fff)`) so it inherits the correct theme once CSS loads. Vue replaces the shell on mount.
+11. **Static HTML shell + dark-mode restore in `index.html`** — A lightweight header + "Loading..." message renders instantly from raw HTML before any JS loads. An inline `<script>` in `<head>` sets the canonical URL dynamically from `location.origin`, reads `localStorage('app-dark-mode')` and adds `.app-dark` to `<html>` before first paint, preventing a white flash for dark-mode users. The shell uses CSS variable fallbacks (`var(--surface-card, #fff)`) so it inherits the correct theme once CSS loads. Vue replaces the shell on mount.
 
 12. **Single-pass filter loop in `applyMockedTicketFilters` (mock mode only)** — Instead of chained `.filter()` calls (one per filter), a single `for` loop with early-exit `continue` avoids intermediate array allocations. Filter values are pre-computed outside the loop (Sets for multiselects, lowercased strings for text) so each iteration is a cheap comparison chain. In API mode, all filtering is done server-side.
 
@@ -131,7 +131,7 @@ Param builders in `src/services/ticketApi.js`: `buildTicketListParams()`, `build
 
 ### Backend requirement: server-side customer email masking (SECURITY)
 
-**Current state (insecure):** The frontend masks `customer_email` in the UI for non-admin users (`useTicketTableData.js` + `maskEmail()` in `stringUtils.js`), but raw unmasked emails are still visible in API responses (Network tab), Pinia state (Vue DevTools), and the browser console. This is cosmetic masking only — not a security boundary.
+**Current state (insecure):** The frontend masks `customer_email` in the UI for non-admin users (`useTicketTableData.js` + `maskEmail()` in `stringUtils.js`). `maskEmail` uses a fixed-width placeholder (`****@domain.com`) that does not reveal the original email length. However, raw unmasked emails are still visible in API responses (Network tab), Pinia state (Vue DevTools), and the browser console. This is cosmetic masking only — not a security boundary.
 
 **Required backend behavior:** All endpoints that return or accept `customer_email` must enforce role-based masking server-side. The backend should inspect the authenticated user's role and:
 
@@ -287,7 +287,7 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 
 ### Data not loading / stale data
 - `useTicketDataStore().lazyInit()` fires once. **Mock mode**: clear IDB (`clearTicketCache()` in `mockedTicketCache.js`) or hard-refresh. **API mode**: check Network tab for failed requests to `/api/ticket-conversation-summaries/`.
-- IDB cache TTL is 1 hour (mock mode only). Stale cache triggers a silent background refresh — UI still renders immediately from the old data
+- IDB cache TTL is 1 hour (mock mode only). Stale cache triggers a silent background refresh — UI still renders immediately from the old data. All IDB operations have a 5-second timeout (`IDB_TIMEOUT_MS` in `mockedTicketCache.js`) to prevent indefinite hangs on blocked/corrupted databases.
 - Switch to mock data: uncomment `VITE_USE_MOCKED_DATA=true` in `.env`, restart dev server
 - Check `fetchError` ref in `useTicketDataStore` for error state
 - `processRecords` is async/batched (mock mode). `isLoading` stays `true` while batches run — do not check for data until `isLoading` is false
@@ -308,8 +308,8 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
   1. XHR interceptor in `firebase/index.js` — catches Firestore 400 responses (e.g. cleared IndexedDB)
   2. `visibilitychange` listener in `auth.js` — two checks: verifies Firebase Auth's IDB still exists via `indexedDB.databases()`, then forces a token refresh via `getIdToken(true)` to catch revoked tokens
   3. `onAuthStateChanged` callback in `auth.js` — catches SDK-detected session loss (e.g. account disabled)
-- Django JWT: `authApi.js` interceptor auto-retries on 401. If looping, check `/api/auth/refresh/` endpoint
-- Firebase errors: verify all `VITE_FIREBASE_*` env vars match the Firebase console project settings
+- Django JWT: `authApi.js` interceptor auto-retries on 401 using `REFRESH_ENDPOINT` constant. If looping, check the refresh endpoint
+- Firebase errors: `firebase/index.js` validates required env vars (`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`) on startup and logs missing ones. Verify all `VITE_FIREBASE_*` env vars match the Firebase console project settings
 - See `FIREBASE+FIRESTORE.md` for full setup guide (adding users, Firestore structure, security rules)
 
 ### Dark mode not toggling
@@ -349,7 +349,7 @@ API proxy (dev only): `/api/` → `VITE_API_URL` or `http://56.228.5.130` (confi
 - **Do NOT add `/:pathMatch(.*)*` catch-all route** — it breaks GitHub Pages cold navigation. Vue Router cannot intercept direct URL loads on GH Pages; the 404.html trick is needed instead.
 - **`isLoading` from `useTicketDataStore()`** — use this for DataTable `:loading` prop; do not create a local `loading = ref(false)` that is never set.
 - **`processRecords` is async (mock mode)** — it yields between batches. Any code that depends on `mockedFullProcessedTickets` must wait for `isLoading` to become false, not run immediately after `lazyInit()`.
-- **Named constants over magic numbers** — e.g. `PAGE_SIZE_DEFAULT = 5`, `FILTER_DEBOUNCE_MS = 300`, `CSAT_HIGH_THRESHOLD = 80`, `CSV_ROW_WARN_THRESHOLD = 10_000`, `PROCESS_BATCH_SIZE = 150`.
+- **Named constants over magic numbers** — e.g. `PAGE_SIZE_DEFAULT = 5`, `FILTER_DEBOUNCE_MS = 300`, `CSAT_HIGH_THRESHOLD = 80`, `CSV_ROW_WARN_THRESHOLD = 10_000`, `PROCESS_BATCH_SIZE = 150`, `IDB_TIMEOUT_MS = 5000`, `REFRESH_ENDPOINT`, `DJANGO_TOKEN_ENDPOINT`.
 - **No virtual scrolling on DataTable** — lazy pagination (5 rows default, `PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100]`) is used instead. The DataTable uses `lazy=true` with `onPage`/`onFilter` events. Mock mode slices `filteredTickets` client-side; API mode receives pre-paginated results from the server.
 - **Data is already normalized** by `processRecords` (mock) or `normalizeApiRecord` (API) — no need for defensive `|| 'none'` / `|| 'No Data'` checks downstream.
 - **`topic` is a multiselect filter** — its value is `string[]`, not `string|null`. Mock mode: lives in `activeMultiselects` in `useFacetedFilterOptions`. API mode: comma-joined in `buildCommonFilterParams`.

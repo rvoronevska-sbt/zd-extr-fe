@@ -26,24 +26,33 @@ function openDb() {
     return dbPromise;
 }
 
+const IDB_TIMEOUT_MS = 5000;
+
+function withTimeout(promise, ms = IDB_TIMEOUT_MS) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`IDB operation timed out after ${ms}ms`)), ms))
+    ]);
+}
+
 export async function getCachedTickets() {
-    const db = await openDb();
-    return new Promise((resolve, reject) => {
+    const db = await withTimeout(openDb());
+    return withTimeout(new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readonly');
         const req = tx.objectStore(STORE_NAME).get(CACHE_KEY);
         req.onsuccess = () => resolve(req.result ?? null);
         req.onerror = () => reject(req.error);
-    });
+    }));
 }
 
 export async function setCachedTickets(data) {
-    const db = await openDb();
-    return new Promise((resolve, reject) => {
+    const db = await withTimeout(openDb());
+    return withTimeout(new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const req = tx.objectStore(STORE_NAME).put({ key: CACHE_KEY, data, timestamp: Date.now() });
         req.onsuccess = () => resolve();
         req.onerror = () => reject(req.error);
-    });
+    }));
 }
 
 export function isCacheStale(cached, maxAgeMs = CACHE_MAX_AGE_MS) {
@@ -52,11 +61,11 @@ export function isCacheStale(cached, maxAgeMs = CACHE_MAX_AGE_MS) {
 }
 
 export async function clearTicketCache() {
-    const db = await openDb();
-    return new Promise((resolve, reject) => {
+    const db = await withTimeout(openDb());
+    return withTimeout(new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const req = tx.objectStore(STORE_NAME).delete(CACHE_KEY);
         req.onsuccess = () => resolve();
         req.onerror = () => reject(req.error);
-    });
+    }));
 }

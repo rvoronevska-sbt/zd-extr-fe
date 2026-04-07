@@ -2,8 +2,6 @@ import { acceptHMRUpdate, defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import { NEGATIVE_SENTIMENTS } from '@/config/mockedEnums';
 
-const USE_MOCKED = import.meta.env.VITE_USE_MOCKED_DATA === 'true';
-
 // O(1) lookup instead of Array.includes O(n) — called per row (mock mode only)
 const NEGATIVE_SET = new Set(NEGATIVE_SENTIMENTS);
 
@@ -83,7 +81,7 @@ export const useTableStore = defineStore('table', () => {
             results.forEach((result, i) => {
                 if (result.status === 'rejected') {
                     const names = ['filterOptions', 'stats', 'topicChartData', 'vipCsatData'];
-                    console.error(`Failed to fetch ${names[i]}:`, result.reason);
+                    console.error(`Failed to fetch ${names[i]}:`, result.reason?.message || result.reason);
                 }
             });
         } finally {

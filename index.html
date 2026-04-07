@@ -6,7 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Zendesk Ticket Extractor</title>
 	<meta name="description" content="Zendesk Ticket Extractor is a tool to extract and visualize data from Zendesk.">
-	<link rel="canonical" href="https://rvoronevska.github.io/zd-extr-fe/">
+	<link rel="canonical" id="canonical-link" href="">
 
 	<!-- Icons -->
 	<link rel="icon" type="image/png" href="assets/favicons/favicon-96x96.png" sizes="96x96">
@@ -26,8 +26,9 @@
 		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@500;600;700&display=swap">
 	</noscript>
 
-	<!-- Restore dark mode before first paint to avoid white flash -->
+	<!-- Inline scripts: run before first paint -->
 	<script>
+		document.getElementById('canonical-link').href = location.origin + '/zd-extr-fe/';
 		if (localStorage.getItem('app-dark-mode') === 'true')
 			document.documentElement.classList.add('app-dark');
 	</script>
