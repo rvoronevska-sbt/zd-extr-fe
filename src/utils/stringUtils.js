@@ -12,10 +12,10 @@ const MD_IMG_EMPTY = /!\[\]\(.*?\)/g;
 const MD_IMG_BLOB = /!\[.*?\]\(\s*blob:.*?\)/g;
 const MD_IMG_BARE = /!\[\]/g;
 
-// Broken ISO date normalization
+// ISO date normalization: convert space-separated dates to T-separated, then clean up
+const ISO_SPACE_TO_T = /(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/g;
 const ISO_PUNCT_SPACES = /\s*([+:])\s*/g;
 const ISO_T_SPACE = /T\s+/g;
-const ISO_TIME_SPACE = /\s+(\d{2}:\d{2})/g;
 const ISO_TZ_SPACE = /(\d{2})\s*([+-]\d{2}:\d{2})/g;
 
 // Date extraction
@@ -41,7 +41,7 @@ export function cleanAndFormatString(input) {
     let cleaned = input.replace(MD_IMG_FULL, '').replace(MD_IMG_EMPTY, '').replace(MD_IMG_BLOB, '').replace(MD_IMG_BARE, '');
 
     // Normalize broken ISO dates (remove unwanted spaces)
-    cleaned = cleaned.replace(ISO_PUNCT_SPACES, '$1').replace(ISO_T_SPACE, 'T').replace(ISO_TIME_SPACE, '$1').replace(ISO_TZ_SPACE, '$1$2');
+    cleaned = cleaned.replace(ISO_SPACE_TO_T, '$1T$2').replace(ISO_PUNCT_SPACES, '$1').replace(ISO_T_SPACE, 'T').replace(ISO_TZ_SPACE, '$1$2');
 
     // Format dates: first one inline, others with double newline before
     let dateCount = 0;
@@ -51,14 +51,17 @@ export function cleanAndFormatString(input) {
             const date = new Date(match);
             if (isNaN(date.getTime())) return match;
 
-            const formatted = new Intl.DateTimeFormat('en-US', {
+            const parts = new Intl.DateTimeFormat('en-US', {
                 day: '2-digit',
                 month: 'short',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit',
                 hour12: false
-            }).format(date);
+            }).formatToParts(date);
+
+            const get = (type) => parts.find((p) => p.type === type)?.value ?? '';
+            const formatted = `${get('month')} ${get('day')} ${get('year')} ${get('hour')}:${get('minute')}`;
 
             dateCount++;
             return dateCount === 1 ? formatted : `\n\n${formatted}`;

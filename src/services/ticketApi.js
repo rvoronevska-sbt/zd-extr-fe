@@ -11,9 +11,9 @@ function toLocalISOString(date) {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${sign}${tzHours}:${tzMinutes}`;
 }
 
-/** Comma-join an array for multi-value query params. Returns undefined if empty. */
-function joinMulti(arr) {
-    return arr?.length ? arr.join(',') : undefined;
+/** Return an array for multi-value query params, or undefined if empty. */
+function multiParam(arr) {
+    return arr?.length ? arr : undefined;
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -36,22 +36,22 @@ function addExtendedDateParams(params, filters) {
 
 /** All multi-value attribute filters (brand, topic, vip_level, agent_email, customer_email, chat_tags). */
 function addAllAttributeFilters(params, filters) {
-    const brand = joinMulti(filters.brand);
+    const brand = multiParam(filters.brand);
     if (brand) params.brand = brand;
 
-    const topic = joinMulti(filters.topic);
+    const topic = multiParam(filters.topic);
     if (topic) params.topic = topic;
 
-    const vipLevel = joinMulti(filters.vip_level);
+    const vipLevel = multiParam(filters.vip_level);
     if (vipLevel) params.vip_level = vipLevel;
 
-    const agentEmail = joinMulti(filters.agent_email);
+    const agentEmail = multiParam(filters.agent_email);
     if (agentEmail) params.agent_email = agentEmail;
 
-    const customerEmail = joinMulti(filters.customer_email);
+    const customerEmail = multiParam(filters.customer_email);
     if (customerEmail) params.customer_email = customerEmail;
 
-    const chatTags = joinMulti(filters._chatTagsString);
+    const chatTags = multiParam(filters._chatTagsString);
     if (chatTags) params.chat_tags = chatTags;
 
     if (filters.csat_score) params.csat_score = filters.csat_score;
@@ -106,10 +106,22 @@ export function buildTicketListParams(filters = {}, lazyParams = {}) {
 }
 
 /**
- * GET /api/ticket-filter-options/
- * Timestamp + attribute filters only (no started_at/updated_at).
+ * GET /api/ticket-filter-options/ — FULL (date-range only)
+ * Returns all distinct values within the time period.
+ * Used for the active filter's own dropdown (so user can deselect).
  */
 export function buildFilterOptionsParams(filters = {}) {
+    const params = {};
+    addTimestampParams(params, filters);
+    return params;
+}
+
+/**
+ * GET /api/ticket-filter-options/ — NARROWED (date-range + attribute filters)
+ * Returns distinct values narrowed by all active filters.
+ * Used for inactive filter dropdowns.
+ */
+export function buildNarrowedFilterOptionsParams(filters = {}) {
     const params = {};
     addTimestampParams(params, filters);
     addAllAttributeFilters(params, filters);
@@ -136,13 +148,13 @@ export function buildTopicChartParams(filters = {}) {
     const params = {};
     addTimestampParams(params, filters);
 
-    const brand = joinMulti(filters.brand);
+    const brand = multiParam(filters.brand);
     if (brand) params.brand = brand;
 
-    const topic = joinMulti(filters.topic);
+    const topic = multiParam(filters.topic);
     if (topic) params.topic = topic;
 
-    const vipLevel = joinMulti(filters.vip_level);
+    const vipLevel = multiParam(filters.vip_level);
     if (vipLevel) params.vip_level = vipLevel;
 
     if (filters.csat_score) params.csat_score = filters.csat_score;
@@ -160,7 +172,7 @@ export function buildVipCsatParams(filters = {}) {
     const params = {};
     addTimestampParams(params, filters);
 
-    const vipLevel = joinMulti(filters.vip_level);
+    const vipLevel = multiParam(filters.vip_level);
     if (vipLevel) params.vip_level = vipLevel;
 
     if (filters.csat_score) params.csat_score = filters.csat_score;
@@ -179,13 +191,13 @@ export function buildExportParams(filters = {}) {
 
     addTimestampParams(params, filters);
 
-    const brand = joinMulti(filters.brand);
+    const brand = multiParam(filters.brand);
     if (brand) params.brand = brand;
 
-    const topic = joinMulti(filters.topic);
+    const topic = multiParam(filters.topic);
     if (topic) params.topic = topic;
 
-    const vipLevel = joinMulti(filters.vip_level);
+    const vipLevel = multiParam(filters.vip_level);
     if (vipLevel) params.vip_level = vipLevel;
 
     if (filters.csat_score) params.csat_score = filters.csat_score;

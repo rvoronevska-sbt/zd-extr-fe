@@ -4,13 +4,11 @@ import { computed, ref } from 'vue';
 
 import { formatDate } from '@/utils/dateUtils';
 import TranscriptDialog from '@/components/TranscriptDialog.vue';
-import ExportDialog from '@/components/ExportDialog.vue';
 import { useTicketFilters, PAGE_SIZE_OPTIONS } from '@/composables/useTicketFilters';
 import { useTranscriptDialog } from '@/composables/useTranscriptDialog';
 import { useTicketTableData } from '@/composables/useTicketTableData';
 
 const USE_MOCKED = import.meta.env.VITE_USE_MOCKED_DATA === 'true';
-const exportDialogVisible = ref(false);
 
 // Custom filter for MultiSelect (mock mode only, harmless in API mode)
 FilterService.register('containsAny', (value, filter) => {
@@ -116,7 +114,7 @@ const emailColumns = computed(() => [
                         </div>
                     </div>
                     <Button v-if="USE_MOCKED" type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportToCSV()" aria-label="Export filtered results to CSV" />
-                    <Button v-else type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportDialogVisible = true" aria-label="Open export dialog" />
+                    <Button v-else type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportToCSV()" aria-label="Export filtered results to CSV" />
                     <IconField>
                         <InputIcon>
                             <i class="pi pi-search" />
@@ -299,7 +297,6 @@ const emailColumns = computed(() => [
         </DataTable>
 
         <TranscriptDialog v-model="dialog" />
-        <ExportDialog v-if="!USE_MOCKED" v-model:visible="exportDialogVisible" />
     </div>
 </template>
 

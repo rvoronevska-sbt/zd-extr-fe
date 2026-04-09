@@ -43,7 +43,15 @@ export function useFacetedFilterOptions(filters, tickets) {
     }));
 
     // Step 1: Apply base (non-multiselect) filters once — shared by all facets
-    const baseFiltered = computed(() => applyMockedTicketFilters(tickets.value, baseFilterParams.value));
+    const baseFiltered = computed(() => {
+        console.group('[useFacetedFilterOptions] baseFilterParams (non-multiselect)');
+        console.log(baseFilterParams.value);
+        console.groupEnd();
+        console.group('[useFacetedFilterOptions] activeMultiselects');
+        console.log(activeMultiselects.value);
+        console.groupEnd();
+        return applyMockedTicketFilters(tickets.value, baseFilterParams.value);
+    });
 
     // Step 2: Single-pass bitmask aggregation — replaces separate filter passes
     //
@@ -107,7 +115,7 @@ export function useFacetedFilterOptions(filters, tickets) {
 
         const sortFn = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
 
-        return {
+        const result = {
             topics: [...topics].sort(sortFn),
             brands: [...brands].sort(sortFn),
             vipLevels: [...vipLevels].sort(sortFn),
@@ -117,6 +125,20 @@ export function useFacetedFilterOptions(filters, tickets) {
             sentiments: [...sentiments].sort(sortFn),
             csatScores: [...csatScores].sort(sortFn)
         };
+
+        console.group('[useFacetedFilterOptions] faceted results (dropdown options)');
+        console.log('baseFiltered rows:', data.length);
+        console.log('topics:', result.topics.length, result.topics);
+        console.log('brands:', result.brands.length, result.brands);
+        console.log('vipLevels:', result.vipLevels.length, result.vipLevels);
+        console.log('customerEmails:', result.customerEmails.length);
+        console.log('agentEmails:', result.agentEmails.length);
+        console.log('chatTags:', result.chatTags.length, result.chatTags);
+        console.log('sentiments:', result.sentiments.length, result.sentiments);
+        console.log('csatScores:', result.csatScores.length, result.csatScores);
+        console.groupEnd();
+
+        return result;
     });
 
     // Thin computed wrappers — read from the single cached result

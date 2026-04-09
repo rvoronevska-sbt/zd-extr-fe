@@ -2,8 +2,12 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || '',
-    withCredentials: true
+    withCredentials: true,
     // timeout: 10000
+    paramsSerializer: {
+        // Serialize arrays as repeated params: topic=X&topic=Y (not topic[]=X)
+        indexes: null
+    }
 });
 
 const REFRESH_ENDPOINT = '/api/token/refresh/';
