@@ -1,4 +1,4 @@
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useTicketDataStore } from '@/stores/ticketData';
 import { useTableStore } from '@/stores/tableStore';
@@ -43,12 +43,14 @@ export function useTicketTableData(filterState, dataTableRef) {
 
         mockedFilteredTickets = computed(() => {
             const params = extractFilterParams();
-            console.group('[useTicketTableData] mocked mode — extractFilterParams()');
-            console.log('Multiselects:', { brand: params.brand, topic: params.topic, vip_level: params.vip_level, customer_email: params.customer_email, agent_email: params.agent_email, _chatTagsString: params._chatTagsString });
-            console.log('Single-selects:', { csat_score: params.csat_score, sentiment: params.sentiment });
-            console.log('Text:', { globalFilter: params.globalFilter, ticketid: params.ticketid, sentiment_reason: params.sentiment_reason, chat_transcript: params.chat_transcript, email_transcript: params.email_transcript, summary: params.summary });
-            console.log('Dates:', { startDate: params.startDate, endDate: params.endDate, startedAtStart: params.startedAtStart, startedAtEnd: params.startedAtEnd, updatedAtStart: params.updatedAtStart, updatedAtEnd: params.updatedAtEnd });
-            console.groupEnd();
+            if (import.meta.env.DEV) {
+                console.group('[useTicketTableData] mocked mode — extractFilterParams()');
+                console.log('Multiselects:', { brand: params.brand, topic: params.topic, vip_level: params.vip_level, customer_email: params.customer_email, agent_email: params.agent_email, _chatTagsString: params._chatTagsString });
+                console.log('Single-selects:', { csat_score: params.csat_score, sentiment: params.sentiment });
+                console.log('Text:', { globalFilter: params.globalFilter, ticketid: params.ticketid, sentiment_reason: params.sentiment_reason, chat_transcript: params.chat_transcript, email_transcript: params.email_transcript, summary: params.summary });
+                console.log('Dates:', { startDate: params.startDate, endDate: params.endDate, startedAtStart: params.startedAtStart, startedAtEnd: params.startedAtEnd, updatedAtStart: params.updatedAtStart, updatedAtEnd: params.updatedAtEnd });
+                console.groupEnd();
+            }
             return applyMockedTicketFilters(mockedFullProcessedTickets.value, params);
         });
 
@@ -90,13 +92,15 @@ export function useTicketTableData(filterState, dataTableRef) {
         if (USE_MOCKED) return;
 
         const filterParams = extractFilterParams();
-        console.group('[useTicketTableData] API mode — fetchData()');
-        console.log('Multiselects:', { brand: filterParams.brand, topic: filterParams.topic, vip_level: filterParams.vip_level, customer_email: filterParams.customer_email, agent_email: filterParams.agent_email, _chatTagsString: filterParams._chatTagsString });
-        console.log('Single-selects:', { csat_score: filterParams.csat_score, sentiment: filterParams.sentiment });
-        console.log('Text:', { globalFilter: filterParams.globalFilter, ticketid: filterParams.ticketid, sentiment_reason: filterParams.sentiment_reason, chat_transcript: filterParams.chat_transcript, email_transcript: filterParams.email_transcript, summary: filterParams.summary });
-        console.log('Dates:', { startDate: filterParams.startDate, endDate: filterParams.endDate });
-        console.log('Pagination:', { page: lazyParams.value.page, limit: lazyParams.value.limit, sortField: lazyParams.value.sortField, sortOrder: lazyParams.value.sortOrder });
-        console.groupEnd();
+        if (import.meta.env.DEV) {
+            console.group('[useTicketTableData] API mode — fetchData()');
+            console.log('Multiselects:', { brand: filterParams.brand, topic: filterParams.topic, vip_level: filterParams.vip_level, customer_email: filterParams.customer_email, agent_email: filterParams.agent_email, _chatTagsString: filterParams._chatTagsString });
+            console.log('Single-selects:', { csat_score: filterParams.csat_score, sentiment: filterParams.sentiment });
+            console.log('Text:', { globalFilter: filterParams.globalFilter, ticketid: filterParams.ticketid, sentiment_reason: filterParams.sentiment_reason, chat_transcript: filterParams.chat_transcript, email_transcript: filterParams.email_transcript, summary: filterParams.summary });
+            console.log('Dates:', { startDate: filterParams.startDate, endDate: filterParams.endDate });
+            console.log('Pagination:', { page: lazyParams.value.page, limit: lazyParams.value.limit, sortField: lazyParams.value.sortField, sortOrder: lazyParams.value.sortOrder });
+            console.groupEnd();
+        }
 
         const listParams = buildTicketListParams(filterParams, {
             page: lazyParams.value.page,
@@ -168,12 +172,12 @@ export function useTicketTableData(filterState, dataTableRef) {
 
             if (isActive) {
                 const opts = sorted(tableStore.filterOptions, apiKey);
-                console.log(`[useTicketTableData] API dropdown "${apiKey}": ${opts.length} options (FULL — field is active)`);
+                if (import.meta.env.DEV) console.log(`[useTicketTableData] API dropdown "${apiKey}": ${opts.length} options (FULL — field is active)`);
                 return opts;
             }
 
             const opts = sorted(tableStore.narrowedFilterOptions, apiKey);
-            console.log(`[useTicketTableData] API dropdown "${apiKey}": ${opts.length} options (NARROWED — from filtered time period)`);
+            if (import.meta.env.DEV) console.log(`[useTicketTableData] API dropdown "${apiKey}": ${opts.length} options (NARROWED — from filtered time period)`);
             return opts;
         });
 
@@ -233,6 +237,11 @@ export function useTicketTableData(filterState, dataTableRef) {
             await tableStore.fetchAllAggregations(extractFilterParams());
             initialFetchDone = true;
         }
+    });
+
+    // ── Cleanup — cancel pending debounce timer on unmount ──
+    onUnmounted(() => {
+        if (fetchDataDebounceTimer) clearTimeout(fetchDataDebounceTimer);
     });
 
     return {

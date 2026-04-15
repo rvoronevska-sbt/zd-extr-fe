@@ -113,8 +113,7 @@ const emailColumns = computed(() => [
                             <Button :class="`dt-period-filters ${activeQuickFilter === '3 months' ? 'dt-period-active' : ''}`" label="Last 3 Months" outlined size="small" @click="setQuickDateFilter('3 months')" aria-label="Filter by last 3 months" />
                         </div>
                     </div>
-                    <Button v-if="USE_MOCKED" type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportToCSV()" aria-label="Export filtered results to CSV" />
-                    <Button v-else type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportToCSV()" aria-label="Export filtered results to CSV" />
+                    <Button type="button" icon="pi pi-download" label="Export to CSV" outlined @click="exportToCSV()" aria-label="Export filtered results to CSV" />
                     <IconField>
                         <InputIcon>
                             <i class="pi pi-search" />
@@ -202,7 +201,7 @@ const emailColumns = computed(() => [
                 </template>
             </Column>
 
-            <Column header="CSAT Score" field="csat_score" filterField="csat_score" style="min-width: 12rem">
+            <Column header="CSAT Score" field="csat_score" filterField="csat_score" :showFilterMatchModes="false" style="min-width: 12rem">
                 <template #body="{ data }">
                     <Tag :value="data.csat_score" severity="contrast" />
                 </template>
@@ -264,7 +263,7 @@ const emailColumns = computed(() => [
                 </template>
             </Column>
 
-            <Column header="Sentiment" field="sentiment" filterField="sentiment" style="min-width: 4rem">
+            <Column header="Sentiment" field="sentiment" filterField="sentiment" :showFilterMatchModes="false" style="min-width: 4rem">
                 <template #body="{ data }">
                     <Tag :value="data.sentiment" severity="help" />
                 </template>

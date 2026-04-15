@@ -44,12 +44,14 @@ export function useFacetedFilterOptions(filters, tickets) {
 
     // Step 1: Apply base (non-multiselect) filters once — shared by all facets
     const baseFiltered = computed(() => {
-        console.group('[useFacetedFilterOptions] baseFilterParams (non-multiselect)');
-        console.log(baseFilterParams.value);
-        console.groupEnd();
-        console.group('[useFacetedFilterOptions] activeMultiselects');
-        console.log(activeMultiselects.value);
-        console.groupEnd();
+        if (import.meta.env.DEV) {
+            console.group('[useFacetedFilterOptions] baseFilterParams (non-multiselect)');
+            console.log(baseFilterParams.value);
+            console.groupEnd();
+            console.group('[useFacetedFilterOptions] activeMultiselects');
+            console.log(activeMultiselects.value);
+            console.groupEnd();
+        }
         return applyMockedTicketFilters(tickets.value, baseFilterParams.value);
     });
 
@@ -126,17 +128,19 @@ export function useFacetedFilterOptions(filters, tickets) {
             csatScores: [...csatScores].sort(sortFn)
         };
 
-        console.group('[useFacetedFilterOptions] faceted results (dropdown options)');
-        console.log('baseFiltered rows:', data.length);
-        console.log('topics:', result.topics.length, result.topics);
-        console.log('brands:', result.brands.length, result.brands);
-        console.log('vipLevels:', result.vipLevels.length, result.vipLevels);
-        console.log('customerEmails:', result.customerEmails.length);
-        console.log('agentEmails:', result.agentEmails.length);
-        console.log('chatTags:', result.chatTags.length, result.chatTags);
-        console.log('sentiments:', result.sentiments.length, result.sentiments);
-        console.log('csatScores:', result.csatScores.length, result.csatScores);
-        console.groupEnd();
+        if (import.meta.env.DEV) {
+            console.group('[useFacetedFilterOptions] faceted results (dropdown options)');
+            console.log('baseFiltered rows:', data.length);
+            console.log('topics:', result.topics.length, result.topics);
+            console.log('brands:', result.brands.length, result.brands);
+            console.log('vipLevels:', result.vipLevels.length, result.vipLevels);
+            console.log('customerEmails:', result.customerEmails.length);
+            console.log('agentEmails:', result.agentEmails.length);
+            console.log('chatTags:', result.chatTags.length, result.chatTags);
+            console.log('sentiments:', result.sentiments.length, result.sentiments);
+            console.log('csatScores:', result.csatScores.length, result.csatScores);
+            console.groupEnd();
+        }
 
         return result;
     });

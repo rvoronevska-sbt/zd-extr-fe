@@ -101,14 +101,17 @@ export function useCsvExport(dataTable, filteredRows, formatDate) {
         const blob = new Blob([bom, csvString], { type: 'text/csv;charset=utf-8;' });
 
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `tickets-${new Date().toLocaleDateString('en-US')}.csv`;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        try {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tickets-${new Date().toLocaleDateString('en-US')}.csv`;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } finally {
+            URL.revokeObjectURL(url);
+        }
     };
 
     return { exportToCSV };
