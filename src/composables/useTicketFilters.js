@@ -11,6 +11,14 @@ const todayStart = () => {
     return d;
 };
 
+// End of the current day (exclusive). Used for "Today" and other quick filters
+// so the full current calendar day is always included, regardless of clock time.
+const tomorrowStart = () => {
+    const d = new Date();
+    d.setHours(24, 0, 0, 0);
+    return d;
+};
+
 function createInitialFilters() {
     return {
         global: { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -18,7 +26,7 @@ function createInitialFilters() {
             operator: FilterOperator.AND,
             constraints: [
                 { value: todayStart(), matchMode: FilterMatchMode.DATE_AFTER },
-                { value: new Date(), matchMode: FilterMatchMode.DATE_BEFORE }
+                { value: tomorrowStart(), matchMode: FilterMatchMode.DATE_BEFORE }
             ]
         },
         started_at: {
@@ -138,7 +146,9 @@ export function useTicketFilters() {
 
         activeQuickFilter.value = period;
         const start = new Date();
-        const end = new Date();
+        // End = tomorrow 00:00 (exclusive) so the full current day is always included,
+        // regardless of what time the user clicks the quick filter.
+        const end = tomorrowStart();
 
         if (period === 'today') {
             start.setHours(0, 0, 0, 0);

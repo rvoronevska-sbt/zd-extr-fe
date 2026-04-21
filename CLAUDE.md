@@ -38,7 +38,7 @@
 
 2. **Pinia `ticketDataStore` in `stores/ticketData.js`** — A setup-style Pinia store with two code paths. **Mock mode**: loads all data once, IDB cache with 1-hour TTL, batched `processRecords`. **API mode**: `fetchTickets(params)` calls `GET /api/ticket-conversation-summaries/` per page/filter change; `fetchTicketById(id)` calls `GET /api/ticket-summaries/{ticketid}/` for transcript detail. **Ticket ID filter special case**: when `params.ticketid` is set, `fetchTickets` routes through the detail endpoint `/api/ticket-summaries/{id}/` (wrapping the single result as `{count: 1, results: [ticket]}`) because the list endpoint doesn't honor the `ticketid` query param. 404s are handled gracefully as an empty result. `lazyInit()` dispatches to the correct mode. `tickets` (API) and `mockedFullProcessedTickets` (mock) use `shallowRef` to avoid deep-reactivity overhead.
 
-3. **Batched `processRecords` to prevent main-thread blocking (mock mode only)** — 30k tickets are processed in batches of 150. Between batches, `scheduler.yield()` (Chrome 129+) or `setTimeout(0)` hands control back to the browser, keeping each task under the 50ms long-task threshold and reducing Lighthouse TBT to near-zero.
+3. **Batched `processRecords` to prevent main-thread blocking (mock mode only)** — all tickets are processed in batches of 150 (`PROCESS_BATCH_SIZE`). Between batches, `scheduler.yield()` (Chrome 129+) or `setTimeout(0)` hands control back to the browser, keeping each task under the 50ms long-task threshold and reducing Lighthouse TBT to near-zero. Designed to scale well past the current 1541-row mock dataset.
 
 4. **Lazy route loading + async components** — All 4 routes use `() => import(...)`. `TableDoc`, `VipTableDoc`, and `ChartDoc` use `defineAsyncComponent()`. This eliminates unused-JS on the login page and defers heavy component parsing until the home route is active.
 
@@ -87,7 +87,7 @@ src/
 │   ├── ticketApi.js                   # API-mode: param builders + fetch calls for all 7 endpoints
 │   ├── mockedTicketCache.js           # Mock-mode: IndexedDB cache (1-hour TTL)
 │   ├── mockedTicketService.js         # Mock-mode: simulated paginated ticket service
-│   └── mocked-ticket-summaries.json   # Mock dataset (~30k tickets)
+│   └── mocked-ticket-summaries.json   # Mock dataset (~1541 tickets, evenly distributed across 5 time buckets — see `npm run refresh-mock-dates`)
 ├── utils/
 │   ├── mockedTicketFilters.js         # Mock-mode: applyMockedTicketFilters() — single-pass filter loop
 │   ├── normalization.js               # emptyToNone(), normalizeTranscript()
@@ -308,6 +308,7 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 - `useTicketDataStore().lazyInit()` fires once. **Mock mode**: clear IDB (`clearTicketCache()` in `mockedTicketCache.js`) or hard-refresh. **API mode**: check Network tab for failed requests to `/api/ticket-conversation-summaries/`.
 - IDB cache TTL is 1 hour (mock mode only). Stale cache triggers a silent background refresh — UI still renders immediately from the old data. All IDB operations have a 5-second timeout (`IDB_TIMEOUT_MS` in `mockedTicketCache.js`) to prevent indefinite hangs on blocked/corrupted databases.
 - Switch to mock data: uncomment `VITE_USE_MOCKED_DATA=true` in `.env`, restart dev server
+- **Mock mode shows no rows for "Today" / recent filters**: the JSON's dates are static and drift out of the active window over time. Run `npm run refresh-mock-dates` to redistribute (see "Mock data maintenance" below).
 - Check `fetchError` ref in `useTicketDataStore` for error state
 - `processRecords` is async/batched (mock mode). `isLoading` stays `true` while batches run — do not check for data until `isLoading` is false
 
@@ -367,6 +368,36 @@ Header buttons (Today, Last 7 Days, Last 30 Days, Last 2 Months, Last 3 Months) 
 | `VITE_API_URL` | API proxy target for dev server (fallback: `http://13.53.64.132`) |
 
 API proxy (dev only): `/api/` → `VITE_API_URL` or `http://13.53.64.132` (configured in `vite.config.mjs`)
+
+---
+
+## Mock data maintenance
+
+`src/services/mocked-ticket-summaries.json` is a static fixture (~1541 tickets). Because dates are baked in, the dataset drifts out of the active quick-filter windows over time. The `scripts/refresh-mock-dates.mjs` script keeps it usable.
+
+```bash
+npm run refresh-mock-dates
+```
+
+**What it does** — redistributes every ticket's `timestamp` so the dataset is evenly split across the 5 non-overlapping ranges that correspond to the UI quick filters, using the same local-midnight boundaries as `useTicketFilters.js`:
+
+| Bucket | Span | Approx. row count |
+|---|---|---|
+| today | 1 day | ~308 |
+| 1-7 days ago | 7 days | ~308 |
+| 1 week - 1 month ago | ~23 days | ~308 |
+| 1-2 months ago | ~30 days | ~308 |
+| 2-3 months ago | ~30 days | ~309 |
+
+Cumulative counts seen when clicking the quick-filter buttons: Today 308, Last 7 Days 616, Last Month 924, Last 2 Months 1232, Last 3 Months 1541.
+
+**Invariants preserved** (every date field in a ticket shifts by the same per-ticket delta):
+- `timestamp === updated_at` — required by the backend contract and verified by the app
+- every timestamp embedded in `chat_transcript` / `email_transcript` ≥ the ticket's `started_at`
+
+**Idempotent-ish** — re-running after the calendar has advanced re-equalizes around the new "today". Running twice in the same second is essentially a no-op.
+
+**Format preservation** — embedded transcript timestamps keep their original fractional-digit width (`.SSSSSS`) and timezone suffix (`Z` / `+00:00`). Ceiling-round on output prevents shifting into a lower-precision format from silently rounding a value *below* the intended target.
 
 ---
 

@@ -8,7 +8,8 @@
         "predeploy": "npm run build",
         "deploy": "vite build && gh-pages -d dist",
         "preview": "vite preview",
-        "lint": "eslint --fix . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
+        "lint": "eslint --fix . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+        "refresh-mock-dates": "node scripts/refresh-mock-dates.mjs"
     },
     "dependencies": {
         "@primeuix/themes": "^2.0.0",
