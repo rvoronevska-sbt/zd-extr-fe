@@ -27,9 +27,6 @@ app.use(PrimeVue, {
     }
 });
 
-app.use(ToastService);
-app.use(ConfirmationService);
-
 const authStore = useAuthStore();
 authStore.initializeAuth();
 
