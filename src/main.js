@@ -6,8 +6,6 @@ import router from './router';
 
 import Aura from '@primeuix/themes/aura';
 import PrimeVue from 'primevue/config';
-import ConfirmationService from 'primevue/confirmationservice';
-import ToastService from 'primevue/toastservice';
 
 import { useAuthStore } from '@/stores/auth';
 
@@ -26,14 +24,6 @@ app.use(PrimeVue, {
         options: {
             darkModeSelector: '.app-dark'
         }
-    },
-    locale: {
-        matchAll: 'Match All (AND)', // instead of "Match All"
-        matchAny: 'Match Any (OR)' // instead of "Match Any"
-        // addRule: 'Add another condition',
-        // removeRule: 'Remove condition',
-        // clear: 'Reset',
-        // apply: 'Filter'
     }
 });
 
