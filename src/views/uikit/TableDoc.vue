@@ -38,7 +38,6 @@ const { dialog, openDialog } = useTranscriptDialog();
 
 const {
     isLoading,
-    isAdmin,
     tableData,
     totalRecords,
     availableTopics,
@@ -59,8 +58,8 @@ const {
 } = useTicketTableData(filterState, dataTable);
 
 const emailColumns = computed(() => [
-    { header: 'Customer Email', field: 'customer_email', options: availableCustomerEmails?.value ?? [], filterable: isAdmin.value },
-    { header: 'Agent Email', field: 'agent_email', options: availableAgentEmails?.value ?? [], filterable: true }
+    { header: 'Customer Email', field: 'customer_email', options: availableCustomerEmails?.value ?? [] },
+    { header: 'Agent Email', field: 'agent_email', options: availableAgentEmails?.value ?? [] }
 ]);
 </script>
 
@@ -215,11 +214,11 @@ const emailColumns = computed(() => [
                 </template>
             </Column>
 
-            <Column v-for="col in emailColumns" :key="col.field" :header="col.header" :filterField="col.filterable ? col.field : undefined" :showFilterMatchModes="false" style="min-width: 18rem">
+            <Column v-for="col in emailColumns" :key="col.field" :header="col.header" :filterField="col.field" :showFilterMatchModes="false" style="min-width: 18rem">
                 <template #body="{ data }">
                     {{ data[col.field] === 'none' ? '—' : data[col.field] }}
                 </template>
-                <template v-if="col.filterable" #filter="{ filterModel, filterCallback }">
+                <template #filter="{ filterModel, filterCallback }">
                     <MultiSelect v-model="filterModel.value" :options="col.options" :placeholder="`Filter by ${col.header}`" display="chip" :filter="true" showClear @change="filterCallback()" />
                 </template>
             </Column>

@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { logger } from '@/utils/logger';
 
 // Shared axios instance used by every API call (auth + ticket endpoints).
-// The dev Vite proxy forwards /api/* to VITE_API_URL or http://13.53.64.132.
+// The dev Vite proxy forwards /api/* to VITE_API_URL.
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || '',
     timeout: 10000,
@@ -20,34 +21,70 @@ const getAuthStore = async () => {
     return _authStore;
 };
 
-// DRF TokenAuthentication tokens don't expire, so there's no refresh flow.
-// A 401 means the token is invalid or the session was revoked server-side —
-// clear local auth state and send the user back to /login.
-//
-// Exceptions: login/logout themselves can legitimately return 401 (bad credentials
-// on login, already-revoked token on logout). Triggering logout+redirect from
-// those would cause an infinite recursion (logout 401 → logout → logout 401 → …)
-// and would also redirect the user away from the login page on wrong credentials.
-//
-// One-shot flag prevents concurrent 401s (multiple in-flight requests all
-// invalidated at once) from triggering multiple logout()s and redirects. The
-// flag never resets because we're about to do a full page reload anyway.
-let _handling401 = false;
+// Single in-flight refresh promise — concurrent 401s all await the same
+// refresh so we don't burn through the rotating refresh token. Cleared in
+// `.finally` so the next 401 after a completed refresh can start a new one.
+let _refreshPromise = null;
 
+// Endpoints the interceptor must NEVER retry. `/api/token/` returning 401
+// means bad credentials (not a refresh opportunity); `/api/token/refresh/`
+// returning 401 means the refresh token itself is expired/invalid.
+function isAuthEndpoint(url) {
+    if (!url) return false;
+    return url.endsWith('/api/token/') || url.endsWith('/api/token/refresh/');
+}
+
+// JWT access tokens expire after ~30 min. When the backend returns 401 on a
+// protected endpoint, call /api/token/refresh/ once, then replay the original
+// request with the new access token. If refresh itself fails, clear auth
+// state and bounce the user back to /login.
+//
+// `_retry` flag prevents infinite loops — a request that already had its
+// access token refreshed once and STILL 401s is a hard error.
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const url = error.config?.url || '';
-        const isAuthRequest = url.endsWith('/api/login/') || url.endsWith('/api/logout/');
-        if (error.response?.status === 401 && !isAuthRequest && !_handling401) {
-            _handling401 = true;
-            const authStore = await getAuthStore();
-            if (authStore.isAuthenticated) {
-                await authStore.logout();
-                window.location.href = `${import.meta.env.BASE_URL}login`;
-            }
+        const config = error.config;
+        const url = config?.url || '';
+
+        if (error.response?.status !== 401 || isAuthEndpoint(url) || config?._retry) {
+            return Promise.reject(error);
         }
-        return Promise.reject(error);
+
+        const authStore = await getAuthStore();
+        if (!authStore.isAuthenticated || !authStore.hasRefreshToken()) {
+            // No refresh token on hand — treat as a hard auth failure.
+            return Promise.reject(error);
+        }
+
+        try {
+            if (!_refreshPromise) {
+                _refreshPromise = authStore.refresh().finally(() => {
+                    _refreshPromise = null;
+                });
+            }
+            await _refreshPromise;
+
+            // Replay the original request with the fresh Bearer token.
+            config._retry = true;
+            config.headers = config.headers || {};
+            config.headers['Authorization'] = api.defaults.headers.common['Authorization'];
+            return api(config);
+        } catch (refreshErr) {
+            // Only force re-login on terminal auth failures. Transient errors
+            // (5xx, network blip, CORS flake) bubble up and the next 401 will
+            // kick off a fresh refresh attempt — otherwise a bad-network
+            // moment kicks the user out of a still-valid session.
+            const status = refreshErr?.response?.status;
+            if (status === 401 || status === 403) {
+                logger.warn('Refresh token rejected — forcing re-login:', refreshErr?.message || refreshErr);
+                authStore.logout();
+                window.location.href = `${import.meta.env.BASE_URL}login`;
+            } else {
+                logger.warn('Refresh failed with non-auth error — keeping session:', refreshErr?.message || refreshErr);
+            }
+            return Promise.reject(error);
+        }
     }
 );
 

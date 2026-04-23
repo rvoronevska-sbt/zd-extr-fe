@@ -2,6 +2,7 @@
 import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
 import Logo from '@/components/Logo.vue';
 import { useAuthStore } from '@/stores/auth';
+import { safeRedirectPath } from '@/utils/safeRedirect';
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -16,41 +17,38 @@ const route = useRoute();
 const username = ref('');
 const password = ref('');
 const passwordRef = ref(null);
-const loading = ref(false);
 const formError = ref(''); // local error message (clears on input change)
 const shake = ref(false); // subtle shake animation on failure
 
 watch([username, password], () => {
     formError.value = '';
-    authStore.error = null;
+    authStore.clearError();
 });
 
 onMounted(async () => {
     await nextTick();
 
+    // PrimeVue's Password component emits menu-trigger ARIA even when
+    // `:feedback="false"` and the popup never renders. Strip only what's
+    // actually there so we no-op cleanly if PrimeVue changes the behavior.
     const input = passwordRef.value?.$el.querySelector('input.p-password-input');
-    if (input) {
-        input.removeAttribute('aria-expanded');
-        input.removeAttribute('aria-haspopup');
-        if (input.hasAttribute('aria-controls') && !document.getElementById(input.getAttribute('aria-controls'))) {
-            input.removeAttribute('aria-controls');
-        }
-    }
+    if (!input) return;
+    if (input.hasAttribute('aria-expanded')) input.removeAttribute('aria-expanded');
+    if (input.hasAttribute('aria-haspopup')) input.removeAttribute('aria-haspopup');
+    const controls = input.getAttribute('aria-controls');
+    if (controls && !document.getElementById(controls)) input.removeAttribute('aria-controls');
 });
 
 async function handleLogin() {
-    // Clear previous errors
     formError.value = '';
-    authStore.error = null;
-    loading.value = true;
+    authStore.clearError();
 
     try {
         const result = await authStore.login(username.value, password.value);
 
         if (result.success) {
-            // Success → redirect
-            const redirect = route.query.redirect || '/';
-            router.replace(redirect);
+            // Success → redirect (validated to block open-redirect phishing)
+            router.replace(safeRedirectPath(route.query.redirect));
         }
     } catch (err) {
         // Failure → show error message + shake effect
@@ -61,8 +59,6 @@ async function handleLogin() {
         setTimeout(() => {
             shake.value = false;
         }, 600);
-    } finally {
-        loading.value = false;
     }
 }
 </script>
@@ -99,7 +95,7 @@ async function handleLogin() {
                             </div>
 
                             <!-- Submit Button -->
-                            <Button type="submit" label="Sign In" class="w-full" :loading="loading || authStore.isLoading" :disabled="loading || authStore.isLoading || !username || !password" />
+                            <Button type="submit" label="Sign In" class="w-full" :loading="authStore.isLoading" :disabled="authStore.isLoading || !username || !password" />
                         </form>
 
                         <!-- Loading state overlay -->

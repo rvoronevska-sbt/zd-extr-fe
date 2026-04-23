@@ -3,27 +3,17 @@ import Logo from '@/components/Logo.vue';
 import { useLayout } from '@/layout/composables/layout';
 import { useAuthStore } from '@/stores/auth';
 import Button from 'primevue/button';
-import { nextTick } from 'vue';
-import { useRouter } from 'vue-router';
 
 const { toggleDarkMode, isDarkTheme } = useLayout();
 const authStore = useAuthStore();
-const router = useRouter();
 
-async function handleLogout() {
-    try {
-        await authStore.logout();
-
-        await nextTick();
-
-        // Preferred: let router handle base path
-        router.replace({ name: 'login' });
-    } catch (err) {
-        console.error('[Logout] Error:', err);
-
-        // Fallback hard redirect if router fails
-        window.location.href = `${import.meta.env.BASE_URL}login`;
-    }
+function handleLogout() {
+    authStore.logout();
+    // Hard reload instead of `router.replace` so ticketDataStore / tableStore
+    // and every cached piece of app state is thrown out. A pure SPA navigation
+    // would let the next user (on a shared machine) briefly see the previous
+    // user's tickets before the core-aggregation fetch lands.
+    window.location.href = `${import.meta.env.BASE_URL}login`;
 }
 </script>
 

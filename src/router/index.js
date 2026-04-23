@@ -45,13 +45,13 @@ router.beforeEach((to) => {
         return { name: 'home' };
     }
 
-    // Prefetch ticket data as soon as auth passes — overlaps with component loading
-    if (to.meta.requiresAuth && authStore.isAuthenticated) {
-        import('@/stores/ticketData').then(({ useTicketDataStore }) => {
-            useTicketDataStore().lazyInit();
-        });
-    }
-
+    // No prefetch here. `useTicketTableData.onMounted` is the single owner of
+    // the initial `lazyInit(filterParams)` call, threading the UI's filter
+    // snapshot in. A guard-side prefetch (with no access to filter state)
+    // would have to pass defaults — and because `lazyInit` caches its first
+    // call via `initPromise`, those defaults would silently win over the
+    // component's explicit params. Keeping a single entry point removes the
+    // coupling. Cold-load cost is ~100 ms of lost overlap.
     return true;
 });
 
