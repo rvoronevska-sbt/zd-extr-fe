@@ -1,0 +1,1 @@
+import{u as o}from"./HomeView-Bn3IILlr.js";import{w as a,o as u,X as s,a as c}from"./framework-DdPJenR6.js";function h({rootRef:f,fetch:l,rootMargin:i="200px"}){const r=o(),t=c(!1);let e=null;async function n(){}return a(()=>r.currentFilterParams,()=>{t.value&&n()}),u(()=>{{t.value=!0;return}}),s(()=>{e==null||e.disconnect(),e=null}),{hasTriggered:t}}export{h as u};

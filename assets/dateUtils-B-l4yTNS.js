@@ -1,0 +1,1 @@
+function o(t,n="en-US",e=!1){if(!t||!(t instanceof Date))return"";const i={day:"2-digit",month:"2-digit",year:"numeric"};return e&&(i.hour="2-digit",i.minute="2-digit"),t.toLocaleDateString(n,i)}export{o as f};
