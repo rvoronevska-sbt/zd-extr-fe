@@ -269,10 +269,18 @@ export async function fetchVipCsatData(params) {
  * Streaming CSV export of all filtered tickets (ignores page/page_size).
  * Triggers a browser download.
  */
+// Large server-streamed CSV exports can run longer than the default axios
+// timeout. Revoke the URL after a delay so Chromium/WebKit don't cancel the
+// download before the user-agent has started it.
+const REVOKE_DELAY_MS = 1000;
+
 export async function exportTicketsCsv(params) {
     const response = await api.get('/api/ticket-summaries/export/', {
         params,
-        responseType: 'blob'
+        responseType: 'blob',
+        // Disable the default 10s timeout — the backend streams the whole
+        // filtered dataset and can easily exceed that on large date ranges.
+        timeout: 0
     });
 
     const contentDisposition = response.headers['content-disposition'];
@@ -281,14 +289,11 @@ export async function exportTicketsCsv(params) {
     const filename = (filenameStarMatch?.[1] && decodeURIComponent(filenameStarMatch[1])) || filenameMatch?.[1] || `tickets-${new Date().toISOString().slice(0, 10)}.csv`;
 
     const url = URL.createObjectURL(response.data);
-    try {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    } finally {
-        URL.revokeObjectURL(url);
-    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
 }

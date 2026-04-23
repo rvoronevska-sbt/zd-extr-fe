@@ -24,7 +24,10 @@ export function useTopicCharts() {
             labels[i] = s.topic;
             totals[i] = s.total;
             negatives[i] = s.negative;
-            percents[i] = (s.percent_negative ?? 0).toFixed(1);
+            // Keep numeric (rounded to 1 decimal) so Chart.js can autoscale
+            // and format tooltips consistently — `toFixed` returns a string,
+            // which bypasses some of Chart.js' numeric code paths.
+            percents[i] = Math.round((s.percent_negative ?? 0) * 10) / 10;
         }
 
         return { labels, totals, negatives, percents };

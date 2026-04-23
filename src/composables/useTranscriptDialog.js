@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { useTicketDataStore } from '@/stores/ticketData';
 import { cleanAndFormatString } from '@/utils/stringUtils';
+import { logger } from '@/utils/logger';
 
 const USE_MOCKED = import.meta.env.VITE_USE_MOCKED_DATA === 'true';
 
@@ -25,7 +26,7 @@ export function useTranscriptDialog() {
                 dialog.value.transcript = cleanAndFormatString(text) || text || 'No transcript available.';
             } catch (err) {
                 dialog.value.transcript = 'Failed to load transcript.';
-                console.error('Failed to fetch transcript:', err);
+                logger.error('Failed to fetch transcript:', err);
             } finally {
                 dialog.value.isLoadingTranscript = false;
             }

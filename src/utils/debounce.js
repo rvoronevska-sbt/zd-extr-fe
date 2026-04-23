@@ -1,3 +1,5 @@
+import { logger } from '@/utils/logger';
+
 /**
  * Creates a debounced version of the given function.
  * The returned function also exposes a `.cancel()` method to clear any pending invocation
@@ -13,7 +15,7 @@ export const debounce = (fn, delay) => {
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
             timer = null;
-            Promise.resolve(fn(...args)).catch((err) => console.error('Debounced function error:', err));
+            Promise.resolve(fn(...args)).catch((err) => logger.error('Debounced function error:', err));
         }, delay);
     };
     debounced.cancel = () => {

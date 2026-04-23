@@ -2,6 +2,7 @@ const CSV_BYTES_PER_ROW = 200; // rough estimate for file size warning
 const CSV_ROW_WARN_THRESHOLD = 10_000; // warn if export exceeds this many rows
 const CSV_SIZE_WARN_MB = 2; // warn if estimated size exceeds this (MB)
 const CSV_BATCH_SIZE = 2_000; // rows processed per batch to avoid main-thread blocking
+const REVOKE_DELAY_MS = 1000; // defer revoke so the browser doesn't cancel the download
 
 export function useCsvExport(dataTable, filteredRows, formatDate) {
     const escapeCSVField = (field) => {
@@ -101,17 +102,15 @@ export function useCsvExport(dataTable, filteredRows, formatDate) {
         const blob = new Blob([bom, csvString], { type: 'text/csv;charset=utf-8;' });
 
         const url = URL.createObjectURL(blob);
-        try {
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `tickets-${new Date().toLocaleDateString('en-US')}.csv`;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } finally {
-            URL.revokeObjectURL(url);
-        }
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `tickets-${new Date().toLocaleDateString('en-US')}.csv`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        // Defer revoke so the browser doesn't abort the in-flight download.
+        setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
     };
 
     return { exportToCSV };
