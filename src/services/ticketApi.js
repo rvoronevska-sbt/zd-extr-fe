@@ -59,8 +59,8 @@ function addAllAttributeFilters(params, filters) {
     if (filters.ticketid) params.ticketid = filters.ticketid;
 }
 
-/** Narrowed attribute filters shared by topic-chart and export endpoints (no agent/customer email, no chat_tags). */
-function addChartExportFilters(params, filters) {
+/** Narrowed attribute filters for the topic-chart endpoint (no emails, no chat_tags, no ticketid). */
+function addTopicChartFilters(params, filters) {
     const brand = multiParam(filters.brand);
     if (brand) params.brand = brand;
 
@@ -167,7 +167,7 @@ export function buildStatsParams(filters = {}) {
 export function buildTopicChartParams(filters = {}) {
     const params = {};
     addTimestampParams(params, filters);
-    addChartExportFilters(params, filters);
+    addTopicChartFilters(params, filters);
     return params;
 }
 
@@ -190,14 +190,25 @@ export function buildVipCsatParams(filters = {}) {
 
 /**
  * GET /api/ticket-summaries/export/
- * Timestamp + brand, topic, vip_level, csat_score, sentiment only.
- * Does NOT accept: started_at/updated_at, agent_email, customer_email,
- * chat_tags, search, ticketid, sentiment_reason, or text-contains params.
+ * Timestamp + brand, topic, vip_level, csat_score, sentiment,
+ * agent_email, customer_email, chat_tags.
+ * Does NOT accept: started_at/updated_at, search, ticketid,
+ * sentiment_reason, or text-contains params.
  */
 export function buildExportParams(filters = {}) {
     const params = {};
     addTimestampParams(params, filters);
-    addChartExportFilters(params, filters);
+    addTopicChartFilters(params, filters);
+
+    const agentEmail = multiParam(filters.agent_email);
+    if (agentEmail) params.agent_email = agentEmail;
+
+    const customerEmail = multiParam(filters.customer_email);
+    if (customerEmail) params.customer_email = customerEmail;
+
+    const chatTags = multiParam(filters._chatTagsString);
+    if (chatTags) params.chat_tags = chatTags;
+
     return params;
 }
 

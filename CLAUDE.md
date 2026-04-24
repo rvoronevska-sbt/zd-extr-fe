@@ -135,7 +135,7 @@ Each endpoint accepts a different subset of filter params. All share `timestamp_
 | `/api/ticket-stats/` | GET | Aggregated stats for StatsWidget | — |
 | `/api/topic-chart-data/` | GET | Topic distribution for charts (max 100, sorted by total desc) | — |
 | `/api/vip-csat-data/` | GET | VIP segment × date CSAT grid | — |
-| `/api/ticket-summaries/export/` | GET | Streaming CSV (no pagination) | `brand`, `topic`, `vip_level`, `csat_score`, `sentiment` only (no text-contains, no agent/customer email, no chat_tags, no started_at/updated_at) |
+| `/api/ticket-summaries/export/` | GET | Streaming CSV (no pagination) | `brand`, `topic`, `vip_level`, `csat_score`, `sentiment`, `agent_email`, `customer_email`, `chat_tags` (no text-contains, no started_at/updated_at, no ticketid, no search, no sentiment_reason) |
 
 Param builders in `src/services/ticketApi.js`: `buildTicketListParams()`, `buildFilterOptionsParams()`, `buildNarrowedFilterOptionsParams()`, `buildStatsParams()`, `buildTopicChartParams()`, `buildVipCsatParams()`, `buildExportParams()`. Each builder sends only the params its endpoint accepts:
 - `buildTicketListParams` — full set: all dates, all attributes, pagination, ordering, search, sentiment_reason, boolean text-contains. **Special case**: when `filters.ticketid` is set, pagination/ordering/search/text-contains are all skipped because the request is routed to `/api/ticket-summaries/{id}/` which ignores query params entirely.
@@ -144,7 +144,7 @@ Param builders in `src/services/ticketApi.js`: `buildTicketListParams()`, `build
 - `buildStatsParams` — `timestamp_gte/lt` + all attribute filters incl. ticketid
 - `buildTopicChartParams` — `timestamp_gte/lt` + `brand`, `topic`, `vip_level`, `csat_score`, `sentiment` (omits `agent_email`/`customer_email`/`chat_tags`/`started_at`/`updated_at`)
 - `buildVipCsatParams` — `timestamp_gte/lt` + `vip_level` + `csat_score` only
-- `buildExportParams` — `timestamp_gte/lt` + `brand`, `topic`, `vip_level`, `csat_score`, `sentiment` (same subset as topic chart). CSV export is **disabled in the UI** whenever any filter the endpoint does not honor is active — `ticketid`, global search, `customer_email`, `agent_email`, `chat_tags`, `sentiment_reason`, `chat_transcript`, `email_transcript`, `summary`, `started_at`, or `updated_at`. Principle: the download must reflect what's in the table, so applying e.g. an `agent_email` filter drops export until the user clears it.
+- `buildExportParams` — `timestamp_gte/lt` + `brand`, `topic`, `vip_level`, `csat_score`, `sentiment`, `agent_email`, `customer_email`, `chat_tags` (a superset of topic-chart's attribute filters). CSV export is **disabled in the UI** whenever any filter the endpoint does not honor is active — `ticketid`, global search, `sentiment_reason`, `chat_transcript`, `email_transcript`, `summary`, `started_at`, or `updated_at`. Principle: the download must reflect what's in the table, so applying e.g. a text-contains filter drops export until the user clears it.
 
 ### Customer email masking (server-side)
 

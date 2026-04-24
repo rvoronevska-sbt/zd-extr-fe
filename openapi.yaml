@@ -20,12 +20,19 @@ info:
     ## Конвенции
     - Дати: ISO 8601 (2026-03-01T00:00:00Z)
     - Пагинация: 1-based (page=1 е първата страница)
-    - Multi-value филтри: comma-separated (brand=A,B)
+    - Multi-value филтри: **repeated query params** (brand=A&brand=B).
+      Фронтендът използва axios `paramsSerializer: { indexes: null }`, което сериализира
+      масиви като повторени параметри без индекси или скоби. Бекендът трябва да приема
+      повторени стойности; comma-separated форматът НЕ се използва от този клиент.
     - Текстови филтри: case-insensitive
     - Enum стойности (vip_level, sentiment, csat_score): бекендът връща Title Case (напр. "Platinum", "Very Positive"), фронтендът нормализира в lowercase при получаване
     - ticketid: бекендът връща integer, фронтендът конвертира в string
     - Празни/null стойности: изключени от filter options
     - Всички масиви в filter options: сортирани азбучно
+
+    ## Автентикация
+    Всички ендпойнти с изключение на `/api/token/` и `/api/token/refresh/` изискват
+    `Authorization: Bearer <access>` header. Виж `securitySchemes.bearerAuth`.
 
 servers:
   - url: http://127.0.0.1:4010
@@ -33,7 +40,14 @@ servers:
   - url: https://your-production-url.com
     description: Production (Amazon)
 
+security:
+  - bearerAuth: []
+
 tags:
+  - name: Auth
+    description: |
+      JWT автентикация: login, refresh, logout.
+      Файлове: src/stores/auth.js, src/services/authApi.js
   - name: Tickets
     description: |
       Paginated ticket list и detail.
@@ -52,6 +66,107 @@ tags:
       Файлове: ticketApi.js (API mode), useCsvExport.js (mock mode)
 
 paths:
+  /api/token/:
+    post:
+      tags: [Auth]
+      summary: Login — издава JWT access + refresh tokens
+      operationId: login
+      security: []
+      description: |
+        **Източник:** src/stores/auth.js → `login()`
+
+        Django REST simplejwt-съвместим. Отговорът НЕ съдържа user обект —
+        `username` полето в UI-а е това, което потребителят е въвел при login.
+        JWT payload съдържа: `{ token_type, exp, iat, jti, user_id }` без role claim.
+
+        **TTL (по конвенция):** access ≈ 30 минути, refresh ≈ 7 дни и ротира при всяко използване.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Успешно влизане — връща access + refresh токени
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: |
+            Невалидни credentials. Тялото използва DRF error shapes —
+            `detail` или `non_field_errors[0]` (виж src/stores/auth.js:70).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "No active account found with the given credentials"
+
+  /api/token/refresh/:
+    post:
+      tags: [Auth]
+      summary: Refresh — издава нов access + ротира refresh token
+      operationId: refreshToken
+      security: []
+      description: |
+        **Източник:** src/stores/auth.js → `refresh()`, src/services/authApi.js interceptor
+
+        Извиква се автоматично от axios response interceptor при 401.
+        **Rotating refresh tokens:** отговорът задължително включва и нов `refresh`;
+        старият refresh token е невалидиран след тази заявка.
+
+        Едновременни 401-ци (напр. паралелни aggregation заявки) са зад един общ
+        in-flight refresh promise, така че ротиращият refresh token се харчи веднъж.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Нов access + ротиран refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "401":
+          description: |
+            Refresh token е изтекъл или невалиден. Интерсепторът свалял сесията
+            и пренасочва към `/login`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "Token is invalid or expired"
+                code: "token_not_valid"
+
+  /api/logout/:
+    post:
+      tags: [Auth]
+      summary: Server-side logout — blacklist на текущия token
+      operationId: logout
+      description: |
+        **Източник:** src/stores/auth.js → `logout()`
+
+        Best-effort server-side logout. Тялото е празно (`null`). Успехът е 200
+        без тяло. Фронтендът чака до 3 секунди (`LOGOUT_TIMEOUT_MS`), след което
+        изчиства локалното състояние независимо от резултата.
+
+        **Интерсепторно поведение:** този ендпойнт е в `isAuthEndpoint()` списъка,
+        така че 401-ца тук НЕ стартира recursive refresh → logout loop от terminal
+        refresh-failure пътя.
+      responses:
+        "200":
+          description: Успешен logout. Няма response body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/ticket-conversation-summaries/:
     get:
       tags: [Tickets]
@@ -64,6 +179,10 @@ paths:
 
         **КРИТИЧНО:** Не връща chat_transcript и email_transcript текст!
         Вместо тях връща has_chat_transcript и has_email_transcript (boolean).
+
+        **ticketid не е параметър на този ендпойнт** — бекендът го игнорира.
+        Когато потребителят филтрира по ticketid, фронтендът пренасочва заявката
+        към `/api/ticket-summaries/{ticketid}/` (виж buildTicketListParams, ticketApi.js:103).
 
         **Целево време:** < 500ms (p95)
         **Макс. payload:** < 100 KB
@@ -153,68 +272,83 @@ paths:
           in: query
           required: false
           description: |
-            Multi-value филтър. Код: brand.join(',').
+            Multi-value филтър (repeated params: brand=A&brand=B).
             Логика: ticket.brand IN (values)
           schema:
-            type: string
-            example: "BrandA,BrandB"
+            type: array
+            items:
+              type: string
+          example: ["BrandA", "BrandB"]
         - name: topic
           in: query
           required: false
           description: |
-            Multi-value филтър. Код: topic.join(',').
+            Multi-value филтър (repeated params).
             Логика: ticket.topic IN (values).
             ВАЖНО: Бекендът трябва да връща чисти topic имена без "|" суфикс.
           schema:
-            type: string
-            example: "Deposits,KYC / Verification"
+            type: array
+            items:
+              type: string
+          example: ["Deposits", "KYC / Verification"]
         - name: vip_level
           in: query
           required: false
           description: |
-            Multi-value филтър. Допустими стойности от mockedEnums.js VIP_SEGMENT_ORDER:
+            Multi-value филтър (repeated params). Допустими стойности от mockedEnums.js VIP_SEGMENT_ORDER:
             none, normal, bronze, silver, gold, platinum, diamond
           schema:
-            type: string
-            example: "gold,platinum"
+            type: array
+            items:
+              type: string
+              enum: [none, normal, bronze, silver, gold, platinum, diamond]
+          example: ["gold", "platinum"]
         - name: agent_email
           in: query
           required: false
           description: |
-            Multi-value филтър. Код: agent_email.join(',').
+            Multi-value филтър (repeated params).
             Логика: CONTAINS match (case-insensitive)
           schema:
-            type: string
-            example: "agent@example.com"
+            type: array
+            items:
+              type: string
+          example: ["agent@example.com"]
         - name: customer_email
           in: query
           required: false
           description: |
-            Multi-value филтър. Код: customer_email.join(',').
-            Логика: CONTAINS match (case-insensitive)
+            Multi-value филтър (repeated params).
+            Логика: CONTAINS match (case-insensitive).
+            Non-admin потребителите получават `"*****"` от бекенда (server-side masking).
           schema:
-            type: string
-            example: "customer@example.com"
+            type: array
+            items:
+              type: string
+          example: ["customer@example.com"]
         - name: chat_tags
           in: query
           required: false
           description: |
-            Multi-value филтър. Код: _chatTagsString.join(',').
-            Логика: тикетът съвпада ако съдържа ПОНЕ ЕДИН от таговете
+            Multi-value филтър (repeated params). Изпраща се като `chat_tags` (фронтендът пази
+            масива под ключ `_chatTagsString` за filter model consistency).
+            Логика: тикетът съвпада ако съдържа ПОНЕ ЕДИН от таговете.
           schema:
-            type: string
-            example: "resolved,escalated"
+            type: array
+            items:
+              type: string
+          example: ["resolved", "escalated"]
         - name: csat_score
           in: query
           required: false
-          description: "Exact match. Стойности от mockedEnums.js CSAT_OPTIONS"
+          description: "Exact match. Стойности от mockedEnums.js CSAT_OPTIONS."
           schema:
             type: string
             enum: [good, bad, unoffered, offered]
         - name: sentiment
           in: query
           required: false
-          description: "Exact match. Стойности от mockedEnums.js SENTIMENT_OPTIONS"
+          description: "Exact match. Стойности от mockedEnums.js SENTIMENT_OPTIONS."
           schema:
             type: string
             enum: [positive, very positive, neutral, negative, very negative]
@@ -227,28 +361,21 @@ paths:
         - name: summary_contains
           in: query
           required: false
-          description: CONTAINS match по полето summary
+          description: Флаг — true ако потребителят е въвел нещо в summary търсачката (сървърът връща само тикети с non-empty summary containing term)
           schema:
             type: boolean
         - name: chat_transcript_contains
           in: query
           required: false
-          description: CONTAINS match по полето chat_transcript
+          description: Флаг — true ако потребителят е въвел нещо в chat transcript търсачката
           schema:
             type: boolean
         - name: email_transcript_contains
           in: query
           required: false
-          description: CONTAINS match по полето email_transcript
+          description: Флаг — true ако потребителят е въвел нещо в email transcript търсачката
           schema:
             type: boolean
-        - name: ticketid
-          in: query
-          required: false
-          description: Exact match по ticketid
-          schema:
-            type: integer
-            example: 2102887
       responses:
         "200":
           description: |
@@ -334,51 +461,76 @@ paths:
         - name: brand
           in: query
           required: false
-          description: Comma-separated. За faceted filtering.
+          description: Repeated params (brand=A&brand=B). За faceted filtering.
           schema:
             type: array
+            items:
+              type: string
         - name: topic
           in: query
           required: false
-          description: Comma-separated
+          description: Repeated params.
           schema:
             type: array
+            items:
+              type: string
         - name: vip_level
           in: query
           required: false
-          description: Comma-separated
+          description: Repeated params.
           schema:
             type: array
+            items:
+              type: string
+              enum: ["none", "normal", "bronze", "silver", "gold", "platinum", "diamond"]
         - name: agent_email
           in: query
           required: false
-          description: Comma-separated
+          description: Repeated params.
           schema:
             type: array
+            items:
+              type: string
         - name: customer_email
           in: query
           required: false
-          description: Comma-separated
+          description: Repeated params.
           schema:
             type: array
+            items:
+              type: string
         - name: chat_tags
           in: query
           required: false
-          description: Comma-separated
+          description: Repeated params.
           schema:
             type: array
+            items:
+              type: string
         - name: csat_score
           in: query
           required: false
+          description: Exact match.
           schema:
-            type: array
-            enum: good, bad, unoffered, offered
+            type: string
+            enum: ["good", "bad", "unoffered", "offered"]
         - name: sentiment
           in: query
           required: false
+          description: Exact match.
           schema:
-            type: array
-            enum: positive, very positive, neutral, negative, very negative
+            type: string
+            enum: ["positive", "very positive", "neutral", "negative", "very negative"]
+        - name: ticketid
+          in: query
+          required: false
+          description: |
+            Exact match. Изпраща се в narrowed mode (`buildNarrowedFilterOptionsParams`).
+            Бекендът може да го игнорира — при ticketid filter фронтендът
+            базира агрегациите на един тикет client-side.
+          schema:
+            type: integer
+            example: 2102887
       responses:
         "200":
           description: Distinct values за всеки dropdown. Всички масиви сортирани азбучно.
@@ -386,6 +538,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FilterOptions"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -409,6 +563,9 @@ paths:
 
         **Филтри:** timestamp_gte/lt + всички attribute филтри (brand, topic, vip_level, agent_email, customer_email, chat_tags, csat_score, sentiment).
         НЕ приема: started_at/updated_at, search, ticketid, sentiment_reason, text-contains.
+        (Забележка: `buildStatsParams` изпраща и `ticketid`, но бекендът го игнорира.
+        При ticketid filter aggregacii-те се override-ват client-side чрез
+        `tableStore.setSingleTicketAggregations`.)
 
         **Целево време:** < 500ms (p95)
         **Макс. payload:** < 5 KB
@@ -428,33 +585,52 @@ paths:
         - name: brand
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - name: topic
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - name: vip_level
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
+              enum: ["none", "normal", "bronze", "silver", "gold", "platinum", "diamond"]
         - name: agent_email
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - name: customer_email
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - name: chat_tags
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - name: csat_score
           in: query
           required: false
@@ -474,6 +650,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TicketStats"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -511,30 +689,40 @@ paths:
         - name: brand
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - name: topic
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - name: vip_level
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
+              enum: ["none", "normal", "bronze", "silver", "gold", "platinum", "diamond"]
         - name: csat_score
           in: query
           required: false
           schema:
-            type: array
-            enum: good, bad, unoffered, offered
+            type: string
+            enum: ["good", "bad", "unoffered", "offered"]
         - name: sentiment
           in: query
           required: false
           schema:
-            type: array
-            enum: positive, very positive, neutral, negative, very negative
+            type: string
+            enum: ["positive", "very positive", "neutral", "negative", "very negative"]
       responses:
         "200":
           description: Topic chart data
@@ -542,6 +730,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TopicChartData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -584,14 +774,18 @@ paths:
         - name: vip_level
           in: query
           required: false
+          description: Repeated params.
           schema:
             type: array
+            items:
+              type: string
+              enum: ["none", "normal", "bronze", "silver", "gold", "platinum", "diamond"]
         - name: csat_score
           in: query
           required: false
           schema:
             type: string
-            enum: [good, bad, unoffered, offered]
+            enum: ["good", "bad", "unoffered", "offered"]
       responses:
         "200":
           description: VIP CSAT grid data
@@ -599,6 +793,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VipCsatData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -619,6 +815,10 @@ paths:
         (за разлика от list endpoint).
         Игнорира page/page_size — експортира ВСИЧКО.
 
+        **Филтри:** timestamp_gte/lt + brand, topic, vip_level, csat_score, sentiment,
+        agent_email, customer_email, chat_tags.
+        НЕ приема: started_at/updated_at, search, ticketid, sentiment_reason, text-contains.
+
         **Целево време:** First byte < 1s
         **Payload:** Streaming, без лимит
       parameters:
@@ -637,30 +837,73 @@ paths:
         - name: brand
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - name: topic
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - name: vip_level
           in: query
           required: false
+          description: Repeated params.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
+              enum: ["none", "normal", "bronze", "silver", "gold", "platinum", "diamond"]
+        - name: agent_email
+          in: query
+          required: false
+          description: |
+            Multi-value филтър (repeated params).
+            Логика: CONTAINS match (case-insensitive).
+          schema:
+            type: array
+            items:
+              type: string
+          example: ["agent@example.com"]
+        - name: customer_email
+          in: query
+          required: false
+          description: |
+            Multi-value филтър (repeated params).
+            Логика: CONTAINS match (case-insensitive).
+          schema:
+            type: array
+            items:
+              type: string
+          example: ["customer@example.com"]
+        - name: chat_tags
+          in: query
+          required: false
+          description: |
+            Multi-value филтър (repeated params). Логика:
+            тикетът съвпада ако съдържа ПОНЕ ЕДИН от таговете.
+          schema:
+            type: array
+            items:
+              type: string
+          example: ["resolved", "escalated"]
         - name: csat_score
           in: query
           required: false
           schema:
             type: string
-            enum: [good, bad, unoffered, offered]
+            enum: ["good", "bad", "unoffered", "offered"]
         - name: sentiment
           in: query
           required: false
           schema:
             type: string
-            enum: [positive, very positive, neutral, negative, very negative]
+            enum: ["positive", "very positive", "neutral", "negative", "very negative"]
       responses:
         "200":
           description: Streaming CSV файл
@@ -674,11 +917,61 @@ paths:
               schema:
                 type: string
                 format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token, издаден от `POST /api/token/`, с prefix `Bearer `.
+        Фронтендът държи токените в closure scope (src/stores/auth.js) — не в
+        localStorage — затова сесията не преживява reload на страницата.
+
   schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: "admin"
+        password:
+          type: string
+          format: password
+          example: "s3cret"
+
+    RefreshRequest:
+      type: object
+      required: [refresh]
+      properties:
+        refresh:
+          type: string
+          description: Refresh JWT от предишния login или refresh цикъл.
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6..."
+
+    TokenPair:
+      type: object
+      description: |
+        Access + refresh JWT. Использува се от `POST /api/token/` (login) и
+        `POST /api/token/refresh/` (refresh). При refresh полето `refresh`
+        съдържа НОВ refresh token (rotating refresh); старият е невалидиран.
+      required: [access, refresh]
+      properties:
+        access:
+          type: string
+          description: "Access JWT — прикачва се като `Authorization: Bearer <access>` към всички последващи заявки."
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjo..."
+        refresh:
+          type: string
+          description: Refresh JWT — препратете към `/api/token/refresh/` за получаване на нов access token.
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6..."
+
     TicketSummary:
       type: object
       description: |
@@ -734,7 +1027,7 @@ components:
           # но бекендът трябва да реши кое е каноничното — или да връща lowercase директно, 
           # или да приема и двата варианта при филтриране.
           description: От mockedEnums.js VIP_SEGMENT_ORDER. Може да е празен string — фронтендът конвертира в "none".
-          enum: [none, normal, bronze, silver, gold, platinum, diamond]
+          enum: ["none", "normal", "bronze", "silver", "gold", "platinum", "diamond"]
           example: "gold"
         customer_email:
           type: string
@@ -749,7 +1042,7 @@ components:
           # COMMENT: Бекендът връща lowercase (коректно). 
           # Ако се промени на Title Case — фронтендът вече нормализира.
           description: От mockedEnums.js CSAT_OPTIONS
-          enum: [good, bad, unoffered, offered]
+          enum: ["good", "bad", "unoffered", "offered"]
           example: "good"
         sentiment:
           type: string
@@ -758,7 +1051,7 @@ components:
           # но бекендът трябва да реши кое е каноничното — или да връща lowercase директно, 
           # или да приема и двата варианта при филтриране.
           description: От mockedEnums.js SENTIMENT_OPTIONS
-          enum: [positive, very positive, neutral, negative, very negative]
+          enum: ["positive", "very positive", "neutral", "negative", "very negative"]
           example: "positive"
         sentiment_reason:
           type: string
@@ -1040,6 +1333,19 @@ components:
         detail:
           type: string
           example: "Invalid value for csat_score: xyz"
+        code:
+          type: string
+          description: |
+            Опционален машинно-читаем error code — използва се от djangorestframework-simplejwt
+            при token грешки (напр. `token_not_valid`). Липсва при общите DRF 4xx отговори.
+          example: "token_not_valid"
+        non_field_errors:
+          type: array
+          items:
+            type: string
+          description: |
+            Standard DRF error shape за форми. Фронтендът чете `non_field_errors[0]`
+            като fallback към `detail` (src/stores/auth.js:70).
 
   responses:
     BadRequest:

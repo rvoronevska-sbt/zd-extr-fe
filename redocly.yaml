@@ -1,0 +1,9 @@
+extends:
+  - recommended
+
+rules:
+  # Django REST Framework enforces trailing slashes via APPEND_SLASH — the API
+  # genuinely serves these URLs, so the spec must include them.
+  no-path-trailing-slash: off
+  # Internal API — no public license required.
+  info-license: off
