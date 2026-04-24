@@ -121,7 +121,7 @@ const emailColumns = computed(() => [
                         label="Export to CSV"
                         outlined
                         :disabled="isExportDisabled"
-                        :title="isExportDisabled ? 'CSV export is not available when filtering by Ticket ID' : ''"
+                        :title="isExportDisabled ? 'CSV export is not available with the current filters — only date range, brand, topic, VIP level, CSAT, and sentiment are supported' : ''"
                         @click="exportToCSV()"
                         aria-label="Export filtered results to CSV"
                     />

@@ -188,12 +188,27 @@ export function useTicketTableData(filterState, dataTableRef) {
     }
 
     // ── Export ──
-    // Disabled when ticketid is set — the export endpoint ignores the ticketid param,
-    // so the download would contain every row in the date range instead of the single
-    // ticket the user sees in the table.
+    // Disabled whenever any filter the export endpoint does not honor is active.
+    // The endpoint only accepts timestamp range + brand/topic/vip_level/csat_score/sentiment,
+    // so any other active filter would produce a CSV that doesn't match the visible table.
     const isExportDisabled = computed(() => {
         if (USE_MOCKED) return false;
-        return !!filters.value.ticketid?.value;
+        const p = extractFilterParams();
+        return (
+            !!p.ticketid ||
+            !!p.globalFilter ||
+            p.customer_email.length > 0 ||
+            p.agent_email.length > 0 ||
+            p._chatTagsString.length > 0 ||
+            !!p.sentiment_reason ||
+            !!p.chat_transcript ||
+            !!p.email_transcript ||
+            !!p.summary ||
+            !!p.startedAtStart ||
+            !!p.startedAtEnd ||
+            !!p.updatedAtStart ||
+            !!p.updatedAtEnd
+        );
     });
 
     const { exportToCSV } = USE_MOCKED

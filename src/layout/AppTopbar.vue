@@ -7,8 +7,11 @@ import Button from 'primevue/button';
 const { toggleDarkMode, isDarkTheme } = useLayout();
 const authStore = useAuthStore();
 
-function handleLogout() {
-    authStore.logout();
+async function handleLogout() {
+    // Await so the POST /api/logout/ call isn't aborted mid-flight by the
+    // subsequent navigation. authStore.logout() caps its own timeout and
+    // swallows errors, so this resolves quickly on dead backends too.
+    await authStore.logout();
     // Hard reload instead of `router.replace` so ticketDataStore / tableStore
     // and every cached piece of app state is thrown out. A pure SPA navigation
     // would let the next user (on a shared machine) briefly see the previous

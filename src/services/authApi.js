@@ -28,10 +28,13 @@ let _refreshPromise = null;
 
 // Endpoints the interceptor must NEVER retry. `/api/token/` returning 401
 // means bad credentials (not a refresh opportunity); `/api/token/refresh/`
-// returning 401 means the refresh token itself is expired/invalid.
+// returning 401 means the refresh token itself is expired/invalid;
+// `/api/logout/` returning 401 means the session is already dead — retrying
+// via refresh would loop (logout from a terminal-refresh-failure path would
+// kick off a fresh refresh that's also doomed).
 function isAuthEndpoint(url) {
     if (!url) return false;
-    return url.endsWith('/api/token/') || url.endsWith('/api/token/refresh/');
+    return url.endsWith('/api/token/') || url.endsWith('/api/token/refresh/') || url.endsWith('/api/logout/');
 }
 
 // JWT access tokens expire after ~30 min. When the backend returns 401 on a
@@ -78,7 +81,7 @@ api.interceptors.response.use(
             const status = refreshErr?.response?.status;
             if (status === 401 || status === 403) {
                 logger.warn('Refresh token rejected — forcing re-login:', refreshErr?.message || refreshErr);
-                authStore.logout();
+                await authStore.logout();
                 window.location.href = `${import.meta.env.BASE_URL}login`;
             } else {
                 logger.warn('Refresh failed with non-auth error — keeping session:', refreshErr?.message || refreshErr);

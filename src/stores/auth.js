@@ -4,6 +4,10 @@ import api from '@/services/authApi';
 
 const TOKEN_ENDPOINT = '/api/token/';
 const TOKEN_REFRESH_ENDPOINT = '/api/token/refresh/';
+const LOGOUT_ENDPOINT = '/api/logout/';
+// Cap the logout request so a slow/dead backend can't freeze the UI between
+// click and redirect. On a healthy backend the call returns in ~200ms.
+const LOGOUT_TIMEOUT_MS = 3000;
 
 export const useAuthStore = defineStore('auth', () => {
     // Access + refresh tokens live in closure scope — NOT returned from the
@@ -90,13 +94,24 @@ export const useAuthStore = defineStore('auth', () => {
         return data.access;
     }
 
-    /** JWT is stateless — there's no server-side logout endpoint in the spec.
-     *  Just clear local state. Tokens remain server-valid for their natural
-     *  lifetime (30 min access / 7 days refresh). */
-    function logout() {
-        setAuthHeader(null);
-        applyTokens(null, null, null);
-        error.value = null;
+    /** Best-effort server-side logout (POST /api/logout/), then clear local
+     *  state. The server call is awaited so the browser doesn't abort it
+     *  mid-flight when the caller follows up with `window.location.href = ...`,
+     *  but any failure (network blip, 401 from an already-dead access token)
+     *  is swallowed — local cleanup must happen regardless. Capped at
+     *  LOGOUT_TIMEOUT_MS so a dead backend can't freeze the redirect. */
+    async function logout() {
+        try {
+            if (_access) {
+                await api.post(LOGOUT_ENDPOINT, null, { timeout: LOGOUT_TIMEOUT_MS });
+            }
+        } catch {
+            // Swallow — see docstring.
+        } finally {
+            setAuthHeader(null);
+            applyTokens(null, null, null);
+            error.value = null;
+        }
     }
 
     function initializeAuth() {
