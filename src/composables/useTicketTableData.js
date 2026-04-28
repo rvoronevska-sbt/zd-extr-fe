@@ -157,26 +157,34 @@ export function useTicketTableData(filterState, dataTableRef) {
     });
 
     // Faceted filter options — API mode:
-    // Every dropdown reads from `tableStore.facetedFilterOptions`. Each field's
-    // array there is built against all active filters EXCEPT that field's own,
-    // via N+1 parallel calls in `fetchFacetedFilterOptions` — mirrors the
-    // mock-mode bitmask logic in `useFacetedFilterOptions`.
+    //   Active filter field  → FULL options from /api/ticket-filter-options/ (date-range only)
+    //   Inactive filter fields → NARROWED options from /api/ticket-filter-options/ (date-range + attribute filters)
     if (!USE_MOCKED) {
         // Pin locale to 'en' with base sensitivity so the sort order is stable
         // across user locales (default `localeCompare` would flip e.g. dotted
         // vs. dotless `i` ordering between `en` and `tr`).
         const sorted = (obj, key) => [...(obj?.[key] ?? [])].sort((a, b) => String(a).localeCompare(String(b), 'en', { sensitivity: 'base' }));
 
-        const facetedOptions = (apiKey) => computed(() => sorted(tableStore.facetedFilterOptions, apiKey));
+        /**
+         * Smart computed: if this field has an active selection, show full options
+         * (so the user can deselect). Otherwise, show narrowed options.
+         */
+        const smartOptions = (apiKey, filterKey) =>
+            computed(() => {
+                const filterVal = filters.value[filterKey]?.value;
+                const isActive = Array.isArray(filterVal) ? filterVal.length > 0 : filterVal != null && filterVal !== '';
+                const source = isActive ? tableStore.filterOptions : tableStore.narrowedFilterOptions;
+                return sorted(source, apiKey);
+            });
 
-        availableTopics = facetedOptions('topic');
-        availableBrands = facetedOptions('brand');
-        availableVipLevels = facetedOptions('vip_level');
-        availableCustomerEmails = facetedOptions('customer_email');
-        availableAgentEmails = facetedOptions('agent_email');
-        availableChatTags = facetedOptions('chat_tags');
-        availableSentiments = facetedOptions('sentiment');
-        availableCsatScores = facetedOptions('csat_score');
+        availableTopics = smartOptions('topic', 'topic');
+        availableBrands = smartOptions('brand', 'brand');
+        availableVipLevels = smartOptions('vip_level', 'vip_level');
+        availableCustomerEmails = smartOptions('customer_email', 'customer_email');
+        availableAgentEmails = smartOptions('agent_email', 'agent_email');
+        availableChatTags = smartOptions('chat_tags', '_chatTagsString');
+        availableSentiments = smartOptions('sentiment', 'sentiment');
+        availableCsatScores = smartOptions('csat_score', 'csat_score');
     }
 
     // ── Export ──

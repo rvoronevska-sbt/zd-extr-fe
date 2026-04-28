@@ -126,11 +126,20 @@ export function buildTicketListParams(filters = {}, lazyParams = {}) {
 }
 
 /**
- * GET /api/ticket-filter-options/
- * Date-range + active attribute filters. Used both for the base call (all
- * filters applied — drives inactive fields) and the per-field drop-one calls
- * (one filter cleared from `filters` before passing in — drives that field's
- * dropdown). The merge is in `tableStore.fetchFacetedFilterOptions`.
+ * GET /api/ticket-filter-options/ — FULL (date-range only)
+ * Returns all distinct values within the time period.
+ * Used for the active filter's own dropdown (so user can deselect).
+ */
+export function buildFilterOptionsParams(filters = {}) {
+    const params = {};
+    addTimestampParams(params, filters);
+    return params;
+}
+
+/**
+ * GET /api/ticket-filter-options/ — NARROWED (date-range + attribute filters)
+ * Returns distinct values narrowed by all active filters.
+ * Used for inactive filter dropdowns.
  */
 export function buildNarrowedFilterOptionsParams(filters = {}) {
     const params = {};

@@ -4,6 +4,7 @@ import { NEGATIVE_SENTIMENTS } from '@/config/mockedEnums';
 import { logger } from '@/utils/logger';
 import { normalizeFilterOptions } from '@/utils/normalization';
 import {
+    buildFilterOptionsParams,
     buildNarrowedFilterOptionsParams,
     buildStatsParams,
     buildTopicChartParams,
@@ -59,11 +60,8 @@ export const useTableStore = defineStore('table', () => {
     // ════════════════════════════════════════════════════════════════════
     //  API MODE — server response containers
     // ════════════════════════════════════════════════════════════════════
-    // Per-field correctly-faceted dropdown options. Each field's array applies
-    // all active filters EXCEPT that field's own (mirrors the mock-mode logic
-    // in `useFacetedFilterOptions`). Built by merging N+1 responses from
-    // `/api/ticket-filter-options/` — see `fetchFacetedFilterOptions`.
-    const facetedFilterOptions = ref(null);
+    const filterOptions = ref(null);
+    const narrowedFilterOptions = ref(null);
     const stats = ref(null);
     const topicChartData = ref(null);
     const vipCsatData = ref(null);
@@ -98,91 +96,42 @@ export const useTableStore = defineStore('table', () => {
     // inner writes happen before Promise.allSettled resolves, so a slow
     // older fetch could overwrite fresher data. Each endpoint now guards
     // its own write with its own counter.
-    let facetedFilterOptionsGeneration = 0;
+    let filterOptionsGeneration = 0;
+    let narrowedFilterOptionsGeneration = 0;
     let statsGeneration = 0;
     let topicChartGeneration = 0;
     let vipCsatGeneration = 0;
 
-    // Filter keys whose options should be cross-faceted in the dropdown.
-    // For each one that's currently active, we fire an extra request to
-    // /api/ticket-filter-options/ with that field's filter cleared, so the
-    // response's array for that field reflects "everything matching all
-    // OTHER filters". The user-facing key for `_chatTagsString` differs from
-    // the API response key (`chat_tags`), so we map it here.
-    const FACET_FIELDS = [
-        { filterKey: 'brand', apiKey: 'brand' },
-        { filterKey: 'topic', apiKey: 'topic' },
-        { filterKey: 'vip_level', apiKey: 'vip_level' },
-        { filterKey: 'customer_email', apiKey: 'customer_email' },
-        { filterKey: 'agent_email', apiKey: 'agent_email' },
-        { filterKey: '_chatTagsString', apiKey: 'chat_tags' },
-        { filterKey: 'csat_score', apiKey: 'csat_score' },
-        { filterKey: 'sentiment', apiKey: 'sentiment' }
-    ];
-
-    function isFieldActive(value) {
-        if (Array.isArray(value)) return value.length > 0;
-        return value != null && value !== '';
-    }
-
-    function clearedValue(value) {
-        return Array.isArray(value) ? [] : null;
-    }
-
-    /**
-     * Faceted filter options — fires N+1 parallel requests:
-     *   - one base request with all active filters applied (drives inactive dropdowns)
-     *   - one drop-one request per active filterable field, with that field's
-     *     filter cleared (drives that field's own dropdown)
-     *
-     * The merge keeps the base response's arrays for inactive fields and
-     * overlays each drop-one response's array for its own active field.
-     * Mirrors the mock-mode logic in `useFacetedFilterOptions` (which does
-     * the same thing client-side via a bitmask pass over the full dataset).
-     *
-     * Worst case: 9 parallel calls (1 base + 8 active fields). Realistic max
-     * is 3–4. The 300ms filter debounce upstream prevents a per-keystroke storm.
-     *
-     * Case-insensitive fields (`vip_level`, `sentiment`, `csat_score`) are
-     * lowercased + deduped via `normalizeFilterOptions` so the dropdown
-     * matches the lowercased values on ticket rows and outgoing filter params.
-     */
-    async function fetchFacetedFilterOptions(filters) {
-        const generation = ++facetedFilterOptionsGeneration;
-
-        const activeFields = FACET_FIELDS.filter((f) => isFieldActive(filters[f.filterKey]));
-
-        const basePromise = fetchFilterOptions(buildNarrowedFilterOptionsParams(filters));
-        const dropOnePromises = activeFields.map((f) => {
-            const cleared = { ...filters, [f.filterKey]: clearedValue(filters[f.filterKey]) };
-            return fetchFilterOptions(buildNarrowedFilterOptionsParams(cleared)).then((response) => ({ field: f, response }));
-        });
-
-        const results = await Promise.allSettled([basePromise, ...dropOnePromises]);
-        if (generation !== facetedFilterOptionsGeneration) return;
-
-        const baseResult = results[0];
-        if (baseResult.status === 'rejected') {
-            logger.error('fetchFacetedFilterOptions: base call failed:', baseResult.reason?.message || baseResult.reason);
-            return;
-        }
-
-        const merged = { ...baseResult.value };
-        for (let i = 1; i < results.length; i++) {
-            const r = results[i];
-            if (r.status === 'rejected') {
-                // Drop-one failure leaves that field with the base response's
-                // array (which contains only the user's selection — degraded
-                // but still functional). Logged at warn so a transient blip
-                // doesn't spam errors.
-                logger.warn('fetchFacetedFilterOptions: drop-one call failed:', r.reason?.message || r.reason);
-                continue;
+    /** FULL options — date-range only, for active field dropdowns.
+     *  Case-insensitive fields (`vip_level`, `sentiment`, `csat_score`) are
+     *  lowercased + deduped via `normalizeFilterOptions` so the dropdown
+     *  matches the lowercased values on ticket rows and outgoing filter params. */
+    async function fetchFilterOptionsFromApi(filters) {
+        const generation = ++filterOptionsGeneration;
+        try {
+            const data = await fetchFilterOptions(buildFilterOptionsParams(filters));
+            if (generation !== filterOptionsGeneration) return;
+            filterOptions.value = normalizeFilterOptions(data);
+        } catch (err) {
+            if (generation === filterOptionsGeneration) {
+                logger.error('fetchFilterOptionsFromApi failed:', err?.message || err);
             }
-            const { field, response } = r.value;
-            merged[field.apiKey] = response[field.apiKey];
+            // Swallow — callers run via Promise.allSettled and don't need the rejection.
         }
+    }
 
-        facetedFilterOptions.value = normalizeFilterOptions(merged);
+    /** NARROWED options — date-range + attribute filters, for inactive field dropdowns. */
+    async function fetchNarrowedFilterOptions(filters) {
+        const generation = ++narrowedFilterOptionsGeneration;
+        try {
+            const data = await fetchFilterOptions(buildNarrowedFilterOptionsParams(filters));
+            if (generation !== narrowedFilterOptionsGeneration) return;
+            narrowedFilterOptions.value = normalizeFilterOptions(data);
+        } catch (err) {
+            if (generation === narrowedFilterOptionsGeneration) {
+                logger.error('fetchNarrowedFilterOptions failed:', err?.message || err);
+            }
+        }
     }
 
     async function fetchStats(filters) {
@@ -225,13 +174,13 @@ export const useTableStore = defineStore('table', () => {
     }
 
     /**
-     * Fetches ONLY the faceted filter options. Used for ticketid lookups
+     * Fetches ONLY filter-options endpoints (full + narrowed). Used for ticketid lookups
      * where stats/chart/vip are computed client-side from the single ticket.
      */
     async function fetchFilterOptionsOnly(filters) {
         incrementAggregationLoading();
         try {
-            await fetchFacetedFilterOptions(filters);
+            await Promise.allSettled([fetchFilterOptionsFromApi(filters), fetchNarrowedFilterOptions(filters)]);
         } finally {
             decrementAggregationLoading();
         }
@@ -337,7 +286,7 @@ export const useTableStore = defineStore('table', () => {
     }
 
     /**
-     * Fetches the always-visible aggregations (faceted filter options + stats).
+     * Fetches the always-visible aggregations (filter options × 2 + stats).
      * Topic chart and VIP CSAT are fetched by their owner widgets
      * (ChartDoc / VipTableDoc) when they scroll into view — see decision #13
      * in Key Architecture Decisions, CLAUDE.md.
@@ -346,7 +295,7 @@ export const useTableStore = defineStore('table', () => {
     async function fetchCoreAggregations(filters) {
         incrementAggregationLoading();
         try {
-            await Promise.allSettled([fetchFacetedFilterOptions(filters), fetchStats(filters)]);
+            await Promise.allSettled([fetchFilterOptionsFromApi(filters), fetchNarrowedFilterOptions(filters), fetchStats(filters)]);
         } finally {
             decrementAggregationLoading();
         }
@@ -359,14 +308,16 @@ export const useTableStore = defineStore('table', () => {
         mockedTopicStats,
 
         // API mode
-        facetedFilterOptions,
+        filterOptions,
+        narrowedFilterOptions,
         stats,
         topicChartData,
         vipCsatData,
         currentFilterParams,
         setCurrentFilterParams,
         isAggregationsLoading,
-        fetchFacetedFilterOptions,
+        fetchFilterOptionsFromApi,
+        fetchNarrowedFilterOptions,
         fetchStats,
         fetchTopicChart,
         fetchVipCsat,

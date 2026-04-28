@@ -430,35 +430,20 @@ paths:
       summary: Distinct стойности за dropdown филтри
       operationId: getFilterOptions
       description: |
-        **Източник:** ticketApi.js → `buildNarrowedFilterOptionsParams()`,
-        tableStore.js → `fetchFacetedFilterOptions()`
+        **Източник:** ticketApi.js → buildFilterOptionsParams() (full) / buildNarrowedFilterOptionsParams() (narrowed)
 
-        **Бекенд контракт:** ендпойнтът прилага всички получени параметри като
-        WHERE clause и връща distinct стойности по поле от резултатния набор.
-        Бекендът НЕ е длъжен да имплементира per-field facet semantics — UI-ът
-        прави cross-faceting client-side чрез N+1 паралелни заявки:
+        Фронтендът прави ДВЕ извиквания към този ендпойнт:
+        1. **Full** (само timestamp) — за dropdown-а на активния филтър (потребителят да може да деселектне)
+        2. **Narrowed** (timestamp + всички attribute филтри) — за dropdown-ите на неактивните филтри
 
-        1. **Base call** — изпраща се с всички активни филтри. Отговорът дава
-           правилни масиви за **неактивните** полета.
-        2. **Drop-one calls** — по една заявка за всяко активно поле, със
-           съответния филтър изчистен. От всеки такъв отговор UI-ът взима САМО
-           масива на полето, чийто филтър е бил изчистен — той представлява
-           "всички стойности, валидни при останалите активни филтри".
-
-        Например при `brand=BrandA` + `topic=Deposits`:
-        - Base call (`brand=BrandA&topic=Deposits`) → `vip_level`, `customer_email`
-          и т.н. са правилно филтрирани.
-        - Drop-brand call (`topic=Deposits` без brand) → `brand` масивът съдържа
-          всички brands, които имат тикети с `topic=Deposits`.
-        - Drop-topic call (`brand=BrandA` без topic) → `topic` масивът съдържа
-          всички topics, които съществуват за `brand=BrandA`.
-
-        UI-ът смърдж-ва тези отговори в едно `facetedFilterOptions` хранилище.
-        Worst case 9 паралелни заявки (1 base + 8 активни полета); реално 3–4.
+        **Faceted filtering логика:**
+        За всяко multiselect поле, прилагай ВСИЧКИ активни филтри ОСВЕН
+        филтъра на самото поле. Когато потребителят избере brand=BrandA,
+        върнатите topic стойности включват САМО topics от тикети на BrandA.
 
         **Всички масиви сортирани азбучно**
 
-        **Целево време:** < 300ms (p95) per call
+        **Целево време:** < 300ms (p95)
         **Макс. payload:** < 20 KB
       parameters:
         - name: timestamp_gte
